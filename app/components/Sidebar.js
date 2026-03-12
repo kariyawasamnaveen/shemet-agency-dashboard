@@ -17,13 +17,10 @@ export default function Sidebar() {
   }
 
   const menuStructure = [
-    { label: 'Notification', href: '/notification' },
     { label: 'Home', href: '/' },
     { label: 'My Profile', href: '/my-profile' },
     { label: 'My Hostess', href: '/invitation/invitees/hosts' },
     { label: 'Sub Agents', href: '/invitation/invitees/agents' },
-    { label: 'Host Daily Report', href: '/invitation/daily-report/hosts' },
-    { label: 'Agent Daily Report', href: '/invitation/daily-report/agents' },
     {
       label: 'My Commission',
       children: [
@@ -36,7 +33,6 @@ export default function Sidebar() {
       children: [
         { label: 'Dealers Management', href: '/diamonds/dealers' },
         { label: 'Complaint', href: '/diamonds/complaint' },
-        { label: 'Commission (Coming Soon)', href: '#', disabled: true },
       ]
     },
     { label: 'My Wallet', href: '/coins-diamonds' },

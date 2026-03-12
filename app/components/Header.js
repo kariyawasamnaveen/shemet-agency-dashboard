@@ -59,39 +59,7 @@ export default function Header() {
 
       {/* Right: Icons + Profile */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 20 }}>
-        {/* Notification */}
-        <Link href="/notification" style={{ textDecoration: 'none' }}>
-          <button style={{
-            background: 'none',
-            border: 'none',
-            fontSize: 20,
-            cursor: 'pointer',
-            position: 'relative',
-            color: '#1f2937',
-            display: 'flex',
-            alignItems: 'center'
-          }}>
-            🔔
-            <div style={{
-              position: 'absolute',
-              top: -4,
-              right: -4,
-              width: 18,
-              height: 18,
-              background: '#ef4444',
-              color: '#fff',
-              borderRadius: '50%',
-              fontSize: 11,
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              fontWeight: 600,
-              border: '2px solid #fff'
-            }}>
-              11
-            </div>
-          </button>
-        </Link>
+
 
         {/* Settings */}
         <Link href="/settings" style={{ textDecoration: 'none' }}>
