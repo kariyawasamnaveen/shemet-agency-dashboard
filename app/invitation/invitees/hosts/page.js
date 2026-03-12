@@ -3,9 +3,24 @@
 import { useState } from 'react'
 
 export default function HostsListPage() {
+    const [showAddHostModal, setShowAddHostModal] = useState(false)
+    const [addHostForm, setAddHostForm] = useState({ id: '', contact: '' })
+    const [requestSent, setRequestSent] = useState(false)
     const [activeTab, setActiveTab] = useState('agreed') // 'agreed' or 'record'
+
     const brandPlum = '#3a2639'
     const brandPlumLight = '#7d537b'
+
+    const handleAddHost = (e) => {
+        e.preventDefault()
+        setRequestSent(true)
+        setTimeout(() => {
+            setShowAddHostModal(false)
+            setRequestSent(false)
+            setAddHostForm({ id: '', contact: '' })
+            alert('Request successfully sent to the host! Waiting for approval.')
+        }, 1500)
+    }
 
     // Mock data for the table
     const hostsData = [
@@ -19,6 +34,87 @@ export default function HostsListPage() {
 
     return (
         <main style={{ background: '#f0f2f5', minHeight: '100vh', padding: '16px 16px' }}>
+            {/* Add Host Modal */}
+            {showAddHostModal && (
+                <div style={{
+                    position: 'fixed',
+                    top: 0,
+                    left: 0,
+                    width: '100%',
+                    height: '100%',
+                    background: 'rgba(0,0,0,0.5)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    zIndex: 1000,
+                    backdropFilter: 'blur(2px)'
+                }}>
+                    <div style={{
+                        background: '#fff',
+                        borderRadius: 16,
+                        width: '100%',
+                        maxWidth: 400,
+                        padding: 32,
+                        boxShadow: '0 20px 25px -5px rgba(0,0,0,0.1)',
+                        position: 'relative'
+                    }}>
+                        <button
+                            onClick={() => setShowAddHostModal(false)}
+                            style={{ position: 'absolute', top: 20, right: 20, background: 'none', border: 'none', fontSize: 20, cursor: 'pointer', color: '#94a3b8' }}
+                        >✕</button>
+
+                        <h2 style={{ fontSize: 20, fontWeight: 700, color: brandPlum, marginBottom: 8 }}>Add New Host</h2>
+                        <p style={{ fontSize: 13, color: '#64748b', marginBottom: 24 }}>Enter the host details to send a binding request.</p>
+
+                        <form onSubmit={handleAddHost}>
+                            <div style={{ marginBottom: 16 }}>
+                                <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: '#475569', marginBottom: 6 }}>Shemet ID</label>
+                                <input
+                                    type="text"
+                                    required
+                                    value={addHostForm.id}
+                                    onChange={(e) => setAddHostForm({ ...addHostForm, id: e.target.value })}
+                                    placeholder="e.g. 98700439"
+                                    style={{ width: '100%', padding: '10px 12px', border: '1px solid #e2e8f0', borderRadius: 8, fontSize: 14, outline: 'none' }}
+                                />
+                            </div>
+                            <div style={{ marginBottom: 24 }}>
+                                <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: '#475569', marginBottom: 6 }}>Phone Number or Gmail</label>
+                                <input
+                                    type="text"
+                                    required
+                                    value={addHostForm.contact}
+                                    onChange={(e) => setAddHostForm({ ...addHostForm, contact: e.target.value })}
+                                    placeholder="Enter phone or email"
+                                    style={{ width: '100%', padding: '10px 12px', border: '1px solid #e2e8f0', borderRadius: 8, fontSize: 14, outline: 'none' }}
+                                />
+                            </div>
+
+                            <button
+                                type="submit"
+                                disabled={requestSent}
+                                style={{
+                                    width: '100%',
+                                    background: brandPlum,
+                                    color: '#fff',
+                                    border: 'none',
+                                    padding: '12px',
+                                    borderRadius: 8,
+                                    fontSize: 14,
+                                    fontWeight: 600,
+                                    cursor: requestSent ? 'not-allowed' : 'pointer',
+                                    opacity: requestSent ? 0.8 : 1,
+                                    transition: 'all 0.2s',
+                                    boxShadow: '0 4px 12px rgba(58,38,57,0.2)'
+                                }}
+                            >
+                                {requestSent ? 'Sending Request...' : 'Send Request'}
+                            </button>
+                        </form>
+                    </div>
+                </div>
+            )}
+
             <div style={{ width: '100%' }}>
                 <div style={{ fontSize: 13, color: '#666', marginBottom: 8, display: 'flex', gap: 6 }}>
                     <span>My Invitation</span> / <span>Invitee List</span> / <span style={{ color: '#111' }}>Hosts List</span>
@@ -70,30 +166,50 @@ export default function HostsListPage() {
                             <input
                                 type="text"
                                 placeholder="ID"
-                                style={{ padding: '8px 12px', border: '1px solid #ddd', borderRadius: 4, fontSize: 13, width: 180 }}
+                                style={{ padding: '8px 12px', border: '1px solid #ddd', borderRadius: 4, fontSize: 13, width: 150 }}
                             />
                             <div style={{ display: 'flex', alignItems: 'center', border: '1px solid #ddd', borderRadius: 4, padding: '0 8px', background: '#fff' }}>
                                 <input type="date" style={{ border: 'none', padding: '8px 4px', fontSize: 13, outline: 'none' }} />
                                 <span style={{ color: '#ccc', margin: '0 4px' }}>-</span>
                                 <input type="date" style={{ border: 'none', padding: '8px 4px', fontSize: 13, outline: 'none' }} />
                             </div>
-                            <select style={{ padding: '8px 12px', border: '1px solid #ddd', borderRadius: 4, fontSize: 13, color: '#666', minWidth: 200 }}>
+                            <select style={{ padding: '8px 12px', border: '1px solid #ddd', borderRadius: 4, fontSize: 13, color: '#666', minWidth: 180 }}>
                                 <option>Inactive hosts yesterday</option>
                                 <option>Active hosts yesterday</option>
                             </select>
-                            <button style={{
-                                background: brandPlum,
-                                color: '#fff',
-                                border: 'none',
-                                padding: '8px 24px',
-                                borderRadius: 4,
-                                fontSize: 14,
-                                fontWeight: 600,
-                                cursor: 'pointer',
-                                boxShadow: '0 2px 6px rgba(58,38,57,0.2)'
-                            }}>
-                                Search
-                            </button>
+
+                            <div style={{ display: 'flex', gap: 8 }}>
+                                <button style={{
+                                    background: brandPlum,
+                                    color: '#fff',
+                                    border: 'none',
+                                    padding: '8px 24px',
+                                    borderRadius: 4,
+                                    fontSize: 14,
+                                    fontWeight: 600,
+                                    cursor: 'pointer',
+                                    boxShadow: '0 2px 6px rgba(58,38,57,0.2)'
+                                }}>
+                                    Search
+                                </button>
+
+                                <button
+                                    onClick={() => setShowAddHostModal(true)}
+                                    style={{
+                                        background: '#fff',
+                                        color: brandPlum,
+                                        border: `1.5px solid ${brandPlum}`,
+                                        padding: '8px 24px',
+                                        borderRadius: 4,
+                                        fontSize: 14,
+                                        fontWeight: 600,
+                                        cursor: 'pointer',
+                                        transition: 'all 0.2s'
+                                    }}
+                                >
+                                    + Add Host
+                                </button>
+                            </div>
                         </div>
 
                         {/* Stats Row */}

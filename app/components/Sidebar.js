@@ -32,7 +32,6 @@ export default function Sidebar() {
       label: 'Diamonds Seller',
       children: [
         { label: 'Dealers Management', href: '/diamonds/dealers' },
-        { label: 'Complaint', href: '/diamonds/complaint' },
       ]
     },
     { label: 'My Wallet', href: '/coins-diamonds' },
