@@ -86,25 +86,44 @@ export default function CoinsDiamondsPage() {
     .reduce((sum, t) => sum + t.amount, 0)
 
   return (
-    <main style={{ padding: 24 }}>
+    <main style={{ padding: 24, background: '#f8fafc', minHeight: '100vh' }}>
       <header style={{ marginBottom: 32 }}>
-        <h1 style={{ fontSize: 28, fontWeight: 700, margin: 0, marginBottom: 8 }}>Coins & Diamonds</h1>
-        <p style={{ color: '#6b7280', margin: 0 }}>Manage user balances and transactions</p>
+        <h1 style={{ fontSize: 28, fontWeight: 700, color: '#1e293b', margin: 0, marginBottom: 8 }}>My Wallet</h1>
+        <p style={{ color: '#64748b', margin: 0, fontSize: 15 }}>Monitor your agent commissions and host withdrawals linked to your agency.</p>
       </header>
 
       {/* Stats */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 16, marginBottom: 24 }}>
-        <div style={{ background: 'linear-gradient(135deg, #fbbf24, #f59e0b)', borderRadius: 8, padding: 16, color: '#fff' }}>
-          <div style={{ fontSize: 12, marginBottom: 8, opacity: 0.9 }}>Coins Spent</div>
-          <div style={{ fontSize: 28, fontWeight: 700 }}>{coinsSpent.toLocaleString()}</div>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 20, marginBottom: 32 }}>
+        <div style={{
+          background: 'linear-gradient(135deg, #3a2639, #573955)',
+          borderRadius: 16,
+          padding: 24,
+          color: '#fff',
+          boxShadow: '0 10px 15px -3px rgba(58, 38, 57, 0.2)'
+        }}>
+          <div style={{ fontSize: 13, marginBottom: 8, opacity: 0.8, fontWeight: 500 }}>Total Agent Commission</div>
+          <div style={{ fontSize: 32, fontWeight: 800 }}>{coinsSpent.toLocaleString()} <span style={{ fontSize: 14, opacity: 0.7 }}>Coins</span></div>
         </div>
-        <div style={{ background: 'linear-gradient(135deg, #a78bfa, #8b5cf6)', borderRadius: 8, padding: 16, color: '#fff' }}>
-          <div style={{ fontSize: 12, marginBottom: 8, opacity: 0.9 }}>Diamonds Earned</div>
-          <div style={{ fontSize: 28, fontWeight: 700 }}>{diamondsEarned.toLocaleString()}</div>
+        <div style={{
+          background: 'linear-gradient(135deg, #f59e0b, #d97706)',
+          borderRadius: 16,
+          padding: 24,
+          color: '#fff',
+          boxShadow: '0 10px 15px -3px rgba(245, 158, 11, 0.2)'
+        }}>
+          <div style={{ fontSize: 13, marginBottom: 8, opacity: 0.8, fontWeight: 500 }}>Host Withdrawals to Agent</div>
+          <div style={{ fontSize: 32, fontWeight: 800 }}>{diamondsEarned.toLocaleString()} <span style={{ fontSize: 14, opacity: 0.7 }}>Diamonds</span></div>
         </div>
-        <div style={{ background: 'linear-gradient(135deg, #34d399, #10b981)', borderRadius: 8, padding: 16, color: '#fff' }}>
-          <div style={{ fontSize: 12, marginBottom: 8, opacity: 0.9 }}>Total Transactions</div>
-          <div style={{ fontSize: 28, fontWeight: 700 }}>{transactions.length}</div>
+        <div style={{
+          background: '#fff',
+          borderRadius: 16,
+          padding: 24,
+          color: '#1e293b',
+          border: '1px solid #e2e8f0',
+          boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.05)'
+        }}>
+          <div style={{ fontSize: 13, marginBottom: 8, color: '#64748b', fontWeight: 500 }}>Total Active Settlements</div>
+          <div style={{ fontSize: 32, fontWeight: 800 }}>{transactions.length}</div>
         </div>
       </div>
 

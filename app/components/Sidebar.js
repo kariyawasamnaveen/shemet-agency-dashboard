@@ -22,9 +22,16 @@ export default function Sidebar() {
     { label: 'My Hostess', href: '/invitation/invitees/hosts' },
     { label: 'Sub Agents', href: '/invitation/invitees/agents' },
     {
-      label: 'My Commission',
+      label: 'Reports',
       children: [
-        { label: 'Your Commission', href: '/invitation/rewards/regular' },
+        { label: 'Host Daily Report', href: '/reports/host-daily' },
+        { label: 'Agent Daily Report', href: '/reports/agent-daily' },
+      ]
+    },
+    {
+      label: 'Weekly Settlement',
+      children: [
+        { label: 'My Commission', href: '/invitation/rewards/regular' },
         { label: 'Sub Agent Commission', href: '/invitation/rewards/extra' },
       ]
     },
