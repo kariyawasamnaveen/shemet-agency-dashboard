@@ -171,7 +171,7 @@ export default function HomePage() {
           position: 'relative',
           borderRadius: 12,
           overflow: 'hidden',
-          minHeight: '480px',
+          minHeight: '320px',
           display: 'flex',
           flexDirection: 'column',
           alignItems: 'center',
@@ -202,14 +202,14 @@ export default function HomePage() {
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              marginBottom: 16,
+              marginBottom: 12,
             }}>
               <img
                 src="/shemet-logo.png"
                 alt="Logo"
                 style={{
-                  width: 110,
-                  height: 110,
+                  width: 90,
+                  height: 90,
                   objectFit: 'cover',
                   borderRadius: '50%',
                   border: '3px solid rgba(255,255,255,0.4)',
@@ -219,7 +219,7 @@ export default function HomePage() {
             </div>
 
             <h2 style={{
-              fontSize: 52,
+              fontSize: 42,
               fontWeight: 800,
               color: '#fff',
               margin: 0,
@@ -227,10 +227,10 @@ export default function HomePage() {
               letterSpacing: '1px',
             }}>Shemet</h2>
             <p style={{
-              fontSize: 22,
+              fontSize: 18,
               color: '#fff',
               margin: 0,
-              marginTop: 6,
+              marginTop: 4,
               fontWeight: 600,
               opacity: 0.95,
               textShadow: '0 1px 4px rgba(0,0,0,0.5)',
