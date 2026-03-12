@@ -17,32 +17,18 @@ export default function Sidebar() {
   }
 
   const menuStructure = [
+    { label: 'Notification', href: '/notification' },
     { label: 'Home', href: '/' },
     { label: 'My Profile', href: '/my-profile' },
+    { label: 'My Hostess', href: '/invitation/invitees/hosts' },
+    { label: 'Sub Agents', href: '/invitation/invitees/agents' },
+    { label: 'Host Daily Report', href: '/invitation/daily-report/hosts' },
+    { label: 'Agent Daily Report', href: '/invitation/daily-report/agents' },
     {
-      label: 'My Invitation',
+      label: 'My Commission',
       children: [
-        {
-          label: 'Invitee List',
-          children: [
-            { label: 'Hosts List', href: '/invitation/invitees/hosts' },
-            { label: 'Agents List', href: '/invitation/invitees/agents' },
-          ]
-        },
-        {
-          label: "Invitees' Daily Report",
-          children: [
-            { label: 'Hosts Report', href: '/invitation/daily-report/hosts' },
-            { label: 'Agents Report', href: '/invitation/daily-report/agents' },
-          ]
-        },
-        {
-          label: 'Invitation Rewards',
-          children: [
-            { label: 'Regular Rewards', href: '/invitation/rewards/regular' },
-            { label: 'Extra Rewards', href: '/invitation/rewards/extra' },
-          ]
-        }
+        { label: 'Your Commission', href: '/invitation/rewards/regular' },
+        { label: 'Sub Agent Commission', href: '/invitation/rewards/extra' },
       ]
     },
     {
@@ -50,16 +36,10 @@ export default function Sidebar() {
       children: [
         { label: 'Dealers Management', href: '/diamonds/dealers' },
         { label: 'Complaint', href: '/diamonds/complaint' },
+        { label: 'Commission (Coming Soon)', href: '#', disabled: true },
       ]
     },
-    { label: 'Notification', href: '/notification' },
-    {
-      label: 'Report',
-      children: [
-        { label: 'Report', href: '/report/report' },
-        { label: 'Report Records', href: '/report/reportRecords' },
-      ]
-    }
+    { label: 'My Wallet', href: '/coins-diamonds' },
   ];
 
   const renderMenu = (items, depth = 0) => {
@@ -111,6 +91,20 @@ export default function Sidebar() {
                   >
                     <polyline points="6 9 12 15 18 9"></polyline>
                   </svg>
+                </div>
+              ) : item.disabled ? (
+                // Disabled / Coming Soon item
+                <div style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  padding: `10px 16px 10px ${18 + (depth * 20)}px`,
+                  color: '#94a3b8',
+                  fontSize: 13,
+                  fontStyle: 'italic',
+                  cursor: 'default',
+                  letterSpacing: '0.1px',
+                }}>
+                  {item.label}
                 </div>
               ) : (
                 // Nav Link

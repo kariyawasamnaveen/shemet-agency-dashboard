@@ -74,46 +74,7 @@ export default function MyProfilePage() {
                     </div>
                 </section>
 
-                {/* 3. Shemet Wallet Account Card */}
-                <section style={{ background: '#fff', borderRadius: 12, padding: 32, boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
-                    <h2 style={{ fontSize: 16, fontWeight: 600, color: brandPlumLight, marginBottom: 24 }}>Shemet Wallet Account</h2>
-
-                    <div style={{ display: 'flex', gap: 60, marginBottom: 32 }}>
-                        <div>
-                            <div style={{ fontSize: 13, color: '#666' }}>Phone: 9233****5328</div>
-                        </div>
-                        <div>
-                            <div style={{ fontSize: 13, color: '#666' }}>Email: azu****@gmail.com</div>
-                        </div>
-                    </div>
-
-                    <div style={{ display: 'flex', gap: 12 }}>
-                        <button style={{
-                            background: 'linear-gradient(135deg, #573955, #3a2639)',
-                            color: '#fff',
-                            border: 'none',
-                            borderRadius: 4,
-                            padding: '10px 24px',
-                            fontSize: 13,
-                            fontWeight: 500,
-                            cursor: 'pointer'
-                        }}>
-                            Withdraw From Wallet
-                        </button>
-                        <button style={{
-                            background: '#fff',
-                            color: '#666',
-                            border: '1px solid #e5e7eb',
-                            borderRadius: 4,
-                            padding: '10px 24px',
-                            fontSize: 13,
-                            fontWeight: 500,
-                            cursor: 'pointer'
-                        }}>
-                            Unbind Shemet Wallet
-                        </button>
-                    </div>
-                </section>
+                {/* Wallet moved to My Wallet page */}
             </div>
         </main>
     )
