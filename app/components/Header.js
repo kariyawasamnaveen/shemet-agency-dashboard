@@ -61,18 +61,6 @@ export default function Header() {
       <div style={{ display: 'flex', alignItems: 'center', gap: 20 }}>
 
 
-        {/* Settings */}
-        <Link href="/settings" style={{ textDecoration: 'none' }}>
-          <button style={{
-            background: 'none',
-            border: 'none',
-            fontSize: 20,
-            cursor: 'pointer',
-            color: '#1f2937'
-          }}>
-            ⚙️
-          </button>
-        </Link>
 
         {/* Profile Dropdown Trigger */}
         <div
