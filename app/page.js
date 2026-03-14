@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import { useAgency } from '../lib/hooks'
 import { db } from '../lib/firebase'
-import { collection, query, where, onSnapshot } from 'firebase/firestore'
+import { collection, query, where, onSnapshot, getDocs, Timestamp, orderBy, limit } from 'firebase/firestore'
 import { useRouter } from 'next/navigation'
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
@@ -116,6 +116,12 @@ export default function HomePage() {
     totalEarnings: 0,
     earningAgents: 0
   })
+  const [searchDate, setSearchDate] = useState(new Date().toISOString().split('T')[0])
+  const [selectedMonth, setSelectedMonth] = useState(new Date().toISOString().slice(0, 7))
+  const [monthlyEarnings, setMonthlyEarnings] = useState(0)
+  const [commissionInfo, setCommissionInfo] = useState({ ratio: 0, current: 0, target: 500 })
+  const [showTooltip, setShowTooltip] = useState(false)
+  const [historicalData, setHistoricalData] = useState([])
 
   useEffect(() => {
     if (!agencyLoading && !agency) {
@@ -127,47 +133,159 @@ export default function HomePage() {
   useEffect(() => {
     if (!agency?.agencyId) return;
 
-    const hostsQuery = query(
-      collection(db, "users"),
-      where("isHost", "==", true),
-      where("agencyId", "==", agency.agencyId)
-    );
+    const todayStr = new Date().toISOString().split('T')[0];
+    const isToday = searchDate === todayStr;
 
-    const unsubscribeHosts = onSnapshot(hostsQuery, (snapshot) => {
-      let totalDiamonds = 0;
-      let activeCount = 0;
-      snapshot.docs.forEach(doc => {
-        const data = doc.data();
-        totalDiamonds += (data.diamonds || 0);
-        if (data.isOnline || data.isLive) activeCount++;
-      });
+    const fetchPerformance = async () => {
+      try {
+        if (isToday) {
+          const startOfDay = new Date();
+          startOfDay.setHours(0, 0, 0, 0);
 
-      setStats(prev => ({
-        ...prev,
-        totalHosts: snapshot.size,
-        activeHosts: activeCount,
-        totalEarnings: totalDiamonds * 0.6
-      }));
-    });
+          const giftQ = query(
+            collection(db, "gift_transactions"),
+            where("agencyId", "==", agency.agencyId),
+            where("timestamp", ">=", Timestamp.fromDate(startOfDay))
+          );
 
-    const subAgentsQuery = query(
-      collection(db, "users"),
-      where("isAgent", "==", true),
-      where("parentAgencyId", "==", agency.agencyId)
-    );
+          const callQ = query(
+            collection(db, "calls"),
+            where("agencyId", "==", agency.agencyId),
+            where("endedAt", ">=", Timestamp.fromDate(startOfDay))
+          );
 
-    const unsubscribeSubAgents = onSnapshot(subAgentsQuery, (snapshot) => {
-      setStats(prev => ({
-        ...prev,
-        earningAgents: snapshot.size
-      }));
-    });
+          const [giftSnap, callSnap] = await Promise.all([getDocs(giftQ), getDocs(callQ)]);
 
-    return () => {
-      unsubscribeHosts();
-      unsubscribeSubAgents();
+          let total = 0;
+          giftSnap.forEach(d => total += (d.data().diamondAmount || 0));
+          callSnap.forEach(d => total += (d.data().diamondsEarned || 0));
+
+          setStats(prev => ({
+            ...prev,
+            totalEarnings: (total * 0.6) / 100 // USD
+          }));
+        } else {
+          const q = query(
+            collection(db, "daily_agency_performance"),
+            where("date", "==", searchDate),
+            where("agencyId", "==", agency.agencyId)
+          );
+          const snap = await getDocs(q);
+          if (!snap.empty) {
+            const data = snap.docs[0].data();
+            setStats(prev => ({
+              ...prev,
+              activeHosts: data.hostCount || 0,
+              totalEarnings: data.totalRevenueUSD || 0,
+            }));
+          } else {
+            setStats(prev => ({ ...prev, activeHosts: 0, totalEarnings: 0 }));
+          }
+        }
+      } catch (e) { console.error(e); }
     };
+
+    fetchPerformance();
+  }, [agency, searchDate]);
+
+  // 4. Fetch Monthly Stats from aggregated collection
+  useEffect(() => {
+    if (!agency?.agencyId) return;
+
+    const fetchMonthlyStats = async () => {
+      try {
+        const q = query(
+          collection(db, "daily_agency_performance"),
+          where("agencyId", "==", agency.agencyId),
+          where("date", ">=", `${selectedMonth}-01`),
+          where("date", "<=", `${selectedMonth}-31`)
+        );
+        const snap = await getDocs(q);
+        let total = 0;
+        snap.forEach(d => total += (d.data().totalRevenueUSD || 0));
+
+        // If selectedMonth is current month, add today's earnings too
+        const currentMonth = new Date().toISOString().slice(0, 7);
+        if (selectedMonth === currentMonth) {
+          total += stats.totalEarnings;
+        }
+
+        setMonthlyEarnings(total);
+      } catch (e) {
+        console.error("Error fetching monthly stats:", e);
+      }
+    };
+
+    fetchMonthlyStats();
+  }, [agency, selectedMonth, stats.totalEarnings]);
+
+  // 5. Fetch Historical Data for Charts (Last 14 Days)
+  useEffect(() => {
+    if (!agency?.agencyId) return;
+
+    const fetchHistoricalData = async () => {
+      try {
+        const q = query(
+          collection(db, "daily_agency_performance"),
+          where("agencyId", "==", agency.agencyId),
+          orderBy("date", "desc"),
+          limit(14)
+        );
+        const snap = await getDocs(q);
+        const data = snap.docs.map(doc => ({
+          date: doc.data().date,
+          hosts: doc.data().hostCount || 0,
+          agents: doc.data().agentCount || 0, // Assuming we have this field
+          revenue: doc.data().totalRevenueUSD || 0
+        })).reverse();
+
+        // Add today to the end of the history
+        const todayStr = new Date().toISOString().split('T')[0];
+        if (data.length === 0 || data[data.length - 1].date !== todayStr) {
+          data.push({
+            date: todayStr,
+            hosts: stats.totalHosts,
+            agents: stats.earningAgents,
+            revenue: stats.totalEarnings
+          });
+        }
+
+        setHistoricalData(data);
+      } catch (e) {
+        console.error("Error fetching historical data:", e);
+      }
+    };
+
+    fetchHistoricalData();
+  }, [agency, stats.totalEarnings, stats.totalHosts, stats.earningAgents]);
+
+  // Real-time tracking for static counts (Total Hosts, etc.)
+  useEffect(() => {
+    if (!agency?.agencyId) return;
+
+    const hostsQuery = query(collection(db, "users"), where("isHost", "==", true), where("agencyId", "==", agency.agencyId));
+    const unsubHosts = onSnapshot(hostsQuery, s => setStats(p => ({ ...p, totalHosts: s.size })));
+
+    const agentsQuery = query(collection(db, "users"), where("isAgent", "==", true), where("parentAgencyId", "==", agency.agencyId));
+    const unsubAgents = onSnapshot(agentsQuery, s => setStats(p => ({ ...p, earningAgents: s.size })));
+
+    return () => { unsubHosts(); unsubAgents(); };
   }, [agency]);
+
+  // Calculate commission based on totalEarnings (simple tiers)
+  useEffect(() => {
+    const earnings = stats.totalEarnings;
+    let ratio = 0;
+    let target = 500;
+
+    if (earnings >= 10000) { ratio = 20; target = 20000; }
+    else if (earnings >= 5000) { ratio = 15; target = 10000; }
+    else if (earnings >= 2000) { ratio = 10; target = 5000; }
+    else if (earnings >= 500) { ratio = 5; target = 2000; }
+    else { ratio = 0; target = 500; }
+
+    setCommissionInfo({ ratio, current: earnings, target });
+  }, [stats.totalEarnings]);
 
   if (agencyLoading) {
     return <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#f8f9fc' }}>Loading Shemet Dashboard...</div>
@@ -175,22 +293,23 @@ export default function HomePage() {
 
   if (!agency) return null;
 
-  const copyToClipboard = (link, type) => {
-    const realLink = `https://chamet.com/invite/${type}?agencyId=${agency?.agencyId || 'test'}`;
+
+  const copyToClipboard = (type) => {
+    const baseUrl = window.location.origin;
+    const realLink = `${baseUrl}/join?agencyId=${agency?.agencyId || 'test'}&role=${type === 'hosts' ? 'host' : 'agent'}`;
     navigator.clipboard.writeText(realLink)
     setCopied(type)
     setTimeout(() => setCopied(null), 2000)
   }
 
-  const lineChartData = [
-    { date: '2026-03-02', hosts: Math.max(0, stats.totalHosts - 2), agents: stats.earningAgents },
-    { date: '2026-03-03', hosts: Math.max(0, stats.totalHosts - 1), agents: stats.earningAgents },
-    { date: '2026-03-12', hosts: stats.totalHosts, agents: stats.earningAgents },
+
+  const lineChartData = historicalData.length > 0 ? historicalData : [
+    { date: '2026-03-02', hosts: 0, agents: 0 },
   ]
 
   const distributionData = [
     { name: 'Host Diamonds', value: stats.totalEarnings },
-    { name: 'Sub Commissions', value: 0 },
+    { name: 'Agency Commission', value: (stats.totalEarnings * (commissionInfo.ratio / 100)) },
   ]
 
   const COLORS = ['#3a2639', '#7d537b']
@@ -270,10 +389,10 @@ export default function HomePage() {
                 <div style={{ fontSize: 16, fontWeight: 700 }}>{item.label}</div>
               </div>
               <button
-                onClick={() => copyToClipboard(item.link, item.id)}
+                onClick={() => copyToClipboard(item.id)}
                 style={{ padding: '8px 18px', background: '#fff', color: '#3a2639', border: 'none', borderRadius: 20, fontSize: 12, fontWeight: 700, cursor: 'pointer', marginLeft: 12 }}
               >
-                {copied === item.id ? 'Copied' : 'Share'}
+                {copied === item.id ? 'Copied' : 'Share Link'}
               </button>
             </div>
           ))}
@@ -286,17 +405,72 @@ export default function HomePage() {
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
             <div style={{ width: '100%' }}>
               <div style={{ fontSize: 14, color: '#333', fontWeight: 500, marginBottom: 12 }}>
-                My Commission Ratio : <span style={{ color: '#f59e0b', fontWeight: 700 }}>0%</span> <span style={{ cursor: 'help', color: '#999', fontSize: 14 }}>ⓘ</span>
+                My Commission Ratio : <span style={{ color: '#f59e0b', fontWeight: 700 }}>{commissionInfo.ratio}%</span>
+                <span
+                  onMouseEnter={() => setShowTooltip(true)}
+                  onMouseLeave={() => setShowTooltip(false)}
+                  style={{ cursor: 'help', color: '#999', fontSize: 14, marginLeft: 8, background: '#f8fafc', width: 20, height: 20, borderRadius: '50%', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', border: '1px solid #e2e8f0' }}
+                >
+                  ⓘ
+                </span>
+
+                {/* Glassmorphism Tooltip */}
+                {showTooltip && (
+                  <div style={{
+                    position: 'absolute',
+                    top: 50,
+                    left: 24,
+                    zIndex: 100,
+                    background: 'rgba(255, 255, 255, 0.8)',
+                    backdropFilter: 'blur(12px)',
+                    border: '1px solid rgba(255, 255, 255, 0.3)',
+                    borderRadius: 16,
+                    padding: 20,
+                    boxShadow: '0 10px 25px rgba(0,0,0,0.1)',
+                    width: 280,
+                    animation: 'fadeIn 0.2s ease-out'
+                  }}>
+                    <style dangerouslySetInnerHTML={{ __html: `@keyframes fadeIn { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: translateY(0); } }` }} />
+                    <div style={{ color: '#3a2639', fontWeight: 700, fontSize: 14, marginBottom: 12 }}>Commission Tier Rules</div>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                      {[
+                        { limit: '$0+', ratio: '0%' },
+                        { limit: '$500+', ratio: '5%' },
+                        { limit: '$2000+', ratio: '10%' },
+                        { limit: '$5000+', ratio: '15%' },
+                        { limit: '$10000+', ratio: '20%' },
+                      ].map((tier, i) => (
+                        <div key={i} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, color: i * 500 <= commissionInfo.current ? '#3a2639' : '#94a3b8', fontWeight: i * 500 <= commissionInfo.current ? 600 : 400 }}>
+                          <span>{tier.limit}</span>
+                          <span>{tier.ratio}</span>
+                        </div>
+                      ))}
+                    </div>
+                    <div style={{ marginTop: 12, paddingTop: 12, borderTop: '1px solid rgba(0,0,0,0.05)', fontSize: 11, color: '#666', lineHeight: 1.4 }}>
+                      Current Growth: <strong style={{ color: '#f59e0b' }}>${Math.floor(commissionInfo.current)}</strong>
+                    </div>
+                  </div>
+                )}
               </div>
               <div style={{ width: '100%', marginBottom: 12 }}>
                 <div style={{ height: 10, background: '#f3f4f6', borderRadius: 5, overflow: 'hidden', position: 'relative' }}>
-                  <div style={{ width: '0%', height: '100%', background: 'linear-gradient(90deg, #573955, #3a2639)', borderRadius: 5 }} />
+                  <div style={{
+                    width: `${Math.min(100, (commissionInfo.current / commissionInfo.target) * 100)}%`,
+                    height: '100%',
+                    background: 'linear-gradient(90deg, #573955, #3a2639)',
+                    borderRadius: 5,
+                    transition: 'width 1s ease-out'
+                  }} />
                 </div>
                 <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 8, fontSize: 12, color: '#666' }}>
-                  <span style={{ fontWeight: 600, color: '#3a2639' }}>$0<span style={{ color: '#999', fontWeight: 400 }}>/0%</span></span>
-                  <span style={{ fontWeight: 600, color: '#3a2639' }}>$500<span style={{ color: '#999', fontWeight: 400 }}>/5%</span></span>
+                  <span style={{ fontWeight: 600, color: '#3a2639' }}>${Math.floor(commissionInfo.current)}<span style={{ color: '#999', fontWeight: 400 }}>/{commissionInfo.ratio}%</span></span>
+                  <span style={{ fontWeight: 600, color: '#3a2639' }}>${commissionInfo.target}<span style={{ color: '#999', fontWeight: 400 }}>/Next Level</span></span>
                 </div>
-                <div style={{ fontSize: 12, color: '#f59e0b', marginTop: 8, fontWeight: 500 }}>$500 more to reach the ratio of 5%</div>
+                {commissionInfo.target > commissionInfo.current && (
+                  <div style={{ fontSize: 12, color: '#f59e0b', marginTop: 8, fontWeight: 500 }}>
+                    ${Math.floor(commissionInfo.target - commissionInfo.current)} more to reach next tier
+                  </div>
+                )}
               </div>
             </div>
           </div>
@@ -306,10 +480,15 @@ export default function HomePage() {
         <div style={{ display: 'flex', flexDirection: 'column', gap: 16, marginBottom: 16 }}>
           <div style={{ background: '#fff', borderRadius: 12, padding: '24px 32px', boxShadow: '0 2px 8px rgba(0,0,0,0.04)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', position: 'relative', overflow: 'visible', marginTop: 20 }}>
             <div>
-              <div style={{ border: '1px solid #e5e7eb', borderRadius: 4, padding: '4px 8px', width: 'fit-content', fontSize: 12, color: '#666', marginBottom: 16, display: 'flex', alignItems: 'center', gap: 6 }}>
-                2026-03 <span style={{ fontSize: 14 }}>📅</span>
+              <div style={{ background: '#f8fafc', borderRadius: 6, padding: '4px 12px', width: 'fit-content', border: '1px solid #e2e8f0', marginBottom: 16 }}>
+                <input
+                  type="month"
+                  value={selectedMonth}
+                  onChange={(e) => setSelectedMonth(e.target.value)}
+                  style={{ border: 'none', background: 'transparent', fontSize: 12, color: '#444', fontWeight: 600, outline: 'none', cursor: 'pointer' }}
+                />
               </div>
-              <div style={{ fontSize: 16, color: '#444', fontWeight: 600 }}>Monthly Rewards: <span style={{ color: '#f59e0b', fontSize: 24, fontWeight: 700, marginLeft: 8 }}>$0</span></div>
+              <div style={{ fontSize: 16, color: '#444', fontWeight: 600 }}>Monthly Rewards: <span style={{ color: '#f59e0b', fontSize: 24, fontWeight: 700, marginLeft: 8 }}>${monthlyEarnings.toLocaleString()}</span></div>
             </div>
             <div style={{ position: 'absolute', right: 80, bottom: -10, zIndex: 10, filter: 'drop-shadow(-10px 15px 20px rgba(0, 0, 0, 0.25))', animation: 'floatPremium 4s ease-in-out infinite' }}>
               <style dangerouslySetInnerHTML={{ __html: `@keyframes floatPremium { 0% { transform: translate3d(0px, 0px, 0px) rotate(-3deg); } 50% { transform: translate3d(-5px, -15px, 0px) rotate(4deg); } 100% { transform: translate3d(0px, 0px, 0px) rotate(-3deg); } }` }} />
@@ -318,8 +497,15 @@ export default function HomePage() {
           </div>
 
           <div style={{ background: '#fff', borderRadius: 12, padding: '24px 32px', boxShadow: '0 2px 8px rgba(0,0,0,0.04)' }}>
-            <div style={{ border: '1px solid #e5e7eb', borderRadius: 4, padding: '4px 8px', width: 'fit-content', fontSize: 12, color: '#666', marginBottom: 16 }}>2026-03-12 📅</div>
-            <div style={{ fontSize: 16, color: '#444', fontWeight: 600, marginBottom: 32 }}>Daily Rewards: <span style={{ color: '#f59e0b', fontSize: 24, fontWeight: 700, marginLeft: 8 }}>$0</span></div>
+            <div style={{ background: '#f8fafc', borderRadius: 6, padding: '4px 12px', width: 'fit-content', border: '1px solid #e2e8f0', marginBottom: 16 }}>
+              <input
+                type="date"
+                value={searchDate}
+                onChange={(e) => setSearchDate(e.target.value)}
+                style={{ border: 'none', background: 'transparent', fontSize: 12, color: '#475569', fontWeight: 600, outline: 'none', cursor: 'pointer' }}
+              />
+            </div>
+            <div style={{ fontSize: 16, color: '#444', fontWeight: 600, marginBottom: 32 }}>Daily Rewards: <span style={{ color: '#f59e0b', fontSize: 24, fontWeight: 700, marginLeft: 8 }}>${(stats.totalEarnings).toLocaleString()}</span></div>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '40px 16px' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
                 <PurplePeopleIcon badge="star" />

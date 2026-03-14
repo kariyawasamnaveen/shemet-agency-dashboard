@@ -44,39 +44,68 @@ export default function HostDailyReportPage() {
 
         setLoading(true);
         try {
-            const startOfDay = new Date(searchDate);
-            startOfDay.setHours(0, 0, 0, 0);
-            const endOfDay = new Date(searchDate);
-            endOfDay.setHours(23, 59, 59, 999);
+            const todayStr = new Date().toISOString().split('T')[0];
+            const isToday = searchDate === todayStr;
 
-            const q = query(
-                collection(db, "gift_transactions"),
-                where("timestamp", ">=", Timestamp.fromDate(startOfDay)),
-                where("timestamp", "<=", Timestamp.fromDate(endOfDay))
-            );
-
-            const snapshot = await getDocs(q);
             const stats = {};
-
             // Initialize stats for each agency host
             hosts.forEach(h => {
                 stats[h.id] = { coins: 0, callDiamonds: 0, duration: '0h 0m', status: 'Completed' };
             });
 
-            // 2a. Process gift transactions
-            snapshot.docs.forEach(doc => {
+            if (!isToday) {
+                // Try fetching from aggregated collection
+                console.log("Fetching from aggregated performance for:", searchDate);
+                const q = query(
+                    collection(db, "daily_performance"),
+                    where("date", "==", searchDate),
+                    where("agencyId", "==", agency.agencyId)
+                );
+
+                const snapshot = await getDocs(q);
+                if (!snapshot.empty) {
+                    snapshot.docs.forEach(doc => {
+                        const data = doc.data();
+                        if (stats[data.hostId]) {
+                            stats[data.hostId].coins = data.giftDiamonds || 0;
+                            stats[data.hostId].callDiamonds = data.callDiamonds || 0;
+                        }
+                    });
+                    setDailyStats(stats);
+                    setLoading(false);
+                    return;
+                }
+                console.log("No aggregated data found, falling back to raw...");
+            }
+
+            // Fallback: Raw aggregation (for today or if missing)
+            const startOfDay = new Date(searchDate);
+            startOfDay.setHours(0, 0, 0, 0);
+            const endOfDay = new Date(searchDate);
+            endOfDay.setHours(23, 59, 59, 999);
+
+            // Fetch gifts
+            const giftQuery = query(
+                collection(db, "gift_transactions"),
+                where("agencyId", "==", agency.agencyId), // New field we added!
+                where("timestamp", ">=", Timestamp.fromDate(startOfDay)),
+                where("timestamp", "<=", Timestamp.fromDate(endOfDay))
+            );
+            const giftSnapshot = await getDocs(giftQuery);
+            giftSnapshot.docs.forEach(doc => {
                 const data = doc.data();
                 if (stats[data.receiverId]) {
                     stats[data.receiverId].coins += (data.diamondAmount || 0);
                 }
             });
 
-            // 2b. Process call transactions
+            // Fetch calls - limited to first 10 hosts due to Firestore limitations if agencyId isn't on calls
+            // But we ADDED agencyId to calls too!
             const callsQuery = query(
                 collection(db, "calls"),
+                where("agencyId", "==", agency.agencyId),
                 where("endedAt", ">=", Timestamp.fromDate(startOfDay)),
-                where("endedAt", "<=", Timestamp.fromDate(endOfDay)),
-                where("receiverId", "in", hosts.map(h => h.id).slice(0, 10))
+                where("endedAt", "<=", Timestamp.fromDate(endOfDay))
             );
             const callsSnapshot = await getDocs(callsQuery);
             callsSnapshot.docs.forEach(doc => {
@@ -125,7 +154,8 @@ export default function HostDailyReportPage() {
                     <div style={{ display: 'flex', gap: 12, marginBottom: 24, flexWrap: 'wrap' }}>
                         <input
                             type="date"
-                            defaultValue="2026-03-12"
+                            value={searchDate}
+                            onChange={(e) => setSearchDate(e.target.value)}
                             style={{ padding: '8px 12px', border: '1px solid #ddd', borderRadius: 4, fontSize: 13 }}
                         />
                         <input

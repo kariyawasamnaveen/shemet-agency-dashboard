@@ -23,7 +23,9 @@ export default function LoginPage() {
         setLoading(true);
 
         try {
-            const userCredential = await signInWithEmailAndPassword(auth, email, password);
+            const trimmedEmail = email.trim();
+            const trimmedPassword = password.trim();
+            const userCredential = await signInWithEmailAndPassword(auth, trimmedEmail, trimmedPassword);
             const user = userCredential.user;
 
             const { doc, getDoc } = await import('firebase/firestore');

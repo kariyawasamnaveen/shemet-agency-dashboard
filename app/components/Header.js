@@ -1,11 +1,32 @@
-'use client'
-
 import { useState, useRef, useEffect } from 'react'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
+import { auth } from '../../lib/firebase'
+import { signOut } from 'firebase/auth'
+import { useAgency } from '../context/AgencyContext'
 
 export default function Header() {
+  const { agent } = useAgency();
+  const router = useRouter();
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const dropdownRef = useRef(null);
+
+  const initials = agent?.name
+    ? agent.name.split(' ').filter(Boolean).map(n => n[0]).join('').toUpperCase().slice(0, 2)
+    : '??';
+
+  const handleLogout = async () => {
+    try {
+      console.log("Header: Initiating logout...");
+      setIsProfileOpen(false);
+      await signOut(auth);
+      console.log("Header: Sign out successful, redirecting...");
+      window.location.href = '/login'; // Force a full refresh/redirect to clear state
+    } catch (error) {
+      console.error("Logout Error:", error);
+      alert("Failed to logout. Please try again.");
+    }
+  };
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -60,8 +81,6 @@ export default function Header() {
       {/* Right: Icons + Profile */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 20 }}>
 
-
-
         {/* Profile Dropdown Trigger */}
         <div
           ref={dropdownRef}
@@ -92,16 +111,16 @@ export default function Header() {
               fontWeight: 700,
               fontSize: 14,
             }}>
-              ZA
+              {initials}
             </div>
             <div style={{ display: 'flex', flexDirection: 'column' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                <span style={{ fontSize: 13, fontWeight: 600, color: '#1f2937' }}>Zubi Agency</span>
+                <span style={{ fontSize: 13, fontWeight: 600, color: '#1f2937' }}>{agent?.name || 'Loading...'}</span>
                 <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#6b7280" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" style={{ transform: isProfileOpen ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s' }}>
                   <polyline points="6 9 12 15 18 9"></polyline>
                 </svg>
               </div>
-              <div style={{ fontSize: 11, color: '#6b7280' }}>Admin</div>
+              <div style={{ fontSize: 11, color: '#6b7280' }}>Agent Profile</div>
             </div>
           </div>
 
@@ -137,10 +156,7 @@ export default function Header() {
               </Link>
               <div style={{ height: 1, background: '#f1f5f9', margin: '4px 8px' }} />
               <button
-                onClick={() => {
-                  setIsProfileOpen(false);
-                  alert('Logging out...');
-                }}
+                onClick={handleLogout}
                 style={{
                   width: '100%',
                   display: 'flex',

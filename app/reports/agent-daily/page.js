@@ -42,59 +42,86 @@ export default function AgentDailyReportPage() {
 
         setLoading(true);
         try {
+            const todayStr = new Date().toISOString().split('T')[0];
+            const isToday = searchDate === todayStr;
+            const stats = {};
+
+            // Initialize
+            subAgents.forEach(sa => {
+                stats[sa.id] = { activeHosts: 0, revenue: 0, commission: 0 };
+            });
+
+            if (!isToday) {
+                // Try fetching from aggregated agency collection
+                const subAgencyIds = subAgents.map(sa => sa.agencyId).filter(id => !!id);
+                if (subAgencyIds.length > 0) {
+                    const q = query(
+                        collection(db, "daily_agency_performance"),
+                        where("date", "==", searchDate),
+                        where("agencyId", "in", subAgencyIds.slice(0, 10))
+                    );
+                    const snapshot = await getDocs(q);
+                    snapshot.docs.forEach(doc => {
+                        const data = doc.data();
+                        const sa = subAgents.find(s => s.agencyId === data.agencyId);
+                        if (sa) {
+                            stats[sa.id] = {
+                                activeHosts: data.hostCount || 0,
+                                revenue: data.totalRevenueUSD || 0,
+                                commission: data.netCommissionUSD || 0
+                            };
+                        }
+                    });
+                    setAgentStats(stats);
+                    setLoading(false);
+                    return;
+                }
+            }
+
+            // Fallback: Raw aggregation using new agencyId fields
             const startOfDay = new Date(searchDate);
             startOfDay.setHours(0, 0, 0, 0);
             const endOfDay = new Date(searchDate);
             endOfDay.setHours(23, 59, 59, 999);
 
-            const stats = {};
-            // Initialize for each sub-agent
             for (const sa of subAgents) {
-                // Find hosts for this sub-agent
+                if (!sa.agencyId) continue;
+
+                // 1. Get host count (static for now or fetch)
                 const hostsQuery = query(
                     collection(db, "users"),
                     where("isHost", "==", true),
                     where("agencyId", "==", sa.agencyId)
                 );
                 const hostsSnap = await getDocs(hostsQuery);
-                const hostIds = hostsSnap.docs.map(d => d.id);
+                const hostCount = hostsSnap.size;
 
-                let revenue = 0;
-                if (hostIds.length > 0) {
-                    // This is a simplified fetch - ideally you'd have a 'daily_agency_stats' collection
-                    const txQuery = query(
-                        collection(db, "gift_transactions"),
-                        where("receiverId", "in", hostIds.slice(0, 10)), // Firestore 'in' limit is 10
-                        where("timestamp", ">=", Timestamp.fromDate(startOfDay)),
-                        where("timestamp", "<=", Timestamp.fromDate(endOfDay))
-                    );
-                    const txSnap = await getDocs(txQuery);
-                    txSnap.docs.forEach(doc => {
-                        revenue += (doc.data().diamondAmount || 0);
-                    });
-                }
+                // 2. Sum gifts and calls using agencyId filter
+                let totalDiamonds = 0;
 
-                let callRevenue = 0;
-                if (hostIds.length > 0) {
-                    const callsQuery = query(
-                        collection(db, "calls"),
-                        where("receiverId", "in", hostIds.slice(0, 10)),
-                        where("endedAt", ">=", Timestamp.fromDate(startOfDay)),
-                        where("endedAt", "<=", Timestamp.fromDate(endOfDay))
-                    );
-                    const callsSnap = await getDocs(callsQuery);
-                    callsSnap.docs.forEach(doc => {
-                        callRevenue += (doc.data().diamondsEarned || 0);
-                    });
-                }
+                const giftQ = query(
+                    collection(db, "gift_transactions"),
+                    where("agencyId", "==", sa.agencyId),
+                    where("timestamp", ">=", Timestamp.fromDate(startOfDay)),
+                    where("timestamp", "<=", Timestamp.fromDate(endOfDay))
+                );
+                const giftSnap = await getDocs(giftQ);
+                giftSnap.forEach(d => totalDiamonds += (d.data().diamondAmount || 0));
 
-                const totalDiamonds = revenue + callRevenue;
-                const withdrawableRevenue = (totalDiamonds * 0.6) / 100; // Converted to USD
+                const callQ = query(
+                    collection(db, "calls"),
+                    where("agencyId", "==", sa.agencyId),
+                    where("endedAt", ">=", Timestamp.fromDate(startOfDay)),
+                    where("endedAt", "<=", Timestamp.fromDate(endOfDay))
+                );
+                const callSnap = await getDocs(callQ);
+                callSnap.forEach(d => totalDiamonds += (d.data().diamondsEarned || 0));
 
+                const revenue = (totalDiamonds * 0.6) / 100;
                 stats[sa.id] = {
-                    activeHosts: hostIds.length,
-                    revenue: withdrawableRevenue,
-                    commission: withdrawableRevenue * 0.1 // 10% of the withdrawable revenue
+                    activeHosts: hostCount,
+                    revenue: revenue,
+                    commission: revenue * 0.1
                 };
             }
             setAgentStats(stats);
@@ -131,6 +158,17 @@ export default function AgentDailyReportPage() {
                 <h1 style={{ fontSize: 20, fontWeight: 600, color: '#111', marginBottom: 24 }}>Agent Daily Report</h1>
 
                 <div style={{ background: '#fff', borderRadius: 12, padding: 24, boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
+                    {/* Filters */}
+                    <div style={{ display: 'flex', gap: 12, marginBottom: 24, flexWrap: 'wrap', alignItems: 'center' }}>
+                        <div style={{ fontSize: 14, color: '#64748b', fontWeight: 500 }}>Select Date:</div>
+                        <input
+                            type="date"
+                            value={searchDate}
+                            onChange={(e) => setSearchDate(e.target.value)}
+                            style={{ padding: '8px 12px', border: '1px solid #e2e8f0', borderRadius: 6, fontSize: 13, background: '#f8fafc', color: brandPlum, fontWeight: 600 }}
+                        />
+                    </div>
+
                     {/* Summary Stats */}
                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 16, marginBottom: 24 }}>
                         <div style={{ padding: 16, borderRadius: 8, border: '1px solid #f1f5f9', background: '#f8fafc' }}>

@@ -15,12 +15,16 @@ export function AgencyProvider({ children }) {
             if (user) {
                 // Use a real-time listener for the user document to catch role changes or profile updates
                 const unsubscribeDoc = onSnapshot(doc(db, "users", user.uid), (docSnap) => {
-                    if ((docSnap.exists() && docSnap.data().isAgent) || user.email === 'hknskariyawasamnaveen@gmail.com') {
+                    const userData = docSnap.data();
+                    const isNaveen = user.email === 'hknskariyawasamnaveen@gmail.com';
+
+                    if ((docSnap.exists() && userData.isAgent) || isNaveen) {
                         setAgent({
                             uid: user.uid,
                             email: user.email,
-                            ...docSnap.data(),
-                            isAgent: true // Force true for Naveen
+                            ...userData,
+                            isAgent: true,
+                            isAdmin: isNaveen || userData.isAdmin || false
                         });
                     } else {
                         setAgent(null);

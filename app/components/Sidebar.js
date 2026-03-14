@@ -3,9 +3,11 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
+import { useAgency } from '../../lib/hooks'
 
 export default function Sidebar() {
   const pathname = usePathname();
+  const { agency: agent } = useAgency();
   const [expandedItems, setExpandedItems] = useState({});
 
   const toggleDropdown = (e, key) => {
@@ -43,6 +45,16 @@ export default function Sidebar() {
     },
     { label: 'My Wallet', href: '/coins-diamonds' },
   ];
+
+  if (agent?.isAdmin) {
+    menuStructure.push({
+      label: 'Admin Tools',
+      children: [
+        { label: 'Pending Withdrawals', href: '/admin/withdrawals' },
+        { label: 'Host Applications', href: '/admin/applications' },
+      ]
+    });
+  }
 
   const renderMenu = (items, depth = 0) => {
     return (

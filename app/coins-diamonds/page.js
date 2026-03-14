@@ -81,15 +81,90 @@ export default function CoinsDiamondsPage() {
     }
   }
 
-  const handleAdjust = (e) => {
+  const handleWithdraw = async (e) => {
     e.preventDefault()
-    // Manual adjustments could be implemented as a separate "commission_adjustments" collection
-    alert('Real-time manual adjustments are coming soon. Please use withdrawal requests for now.')
-    setShowAdjustModal(false)
+    if (!agency?.uid) return;
+
+    if (adjustForm.type === 'USD') {
+      // Withdrawal Logic
+      if (adjustForm.amount <= 0) {
+        alert("Please enter a valid amount.");
+        return;
+      }
+
+      const currentBalance = (agency.diamonds || 0) * 0.6 / 100; // Calculated in USD
+      if (adjustForm.amount > currentBalance) {
+        alert("Insufficient balance!");
+        return;
+      }
+
+      setRequestSent(true)
+      try {
+        await addDoc(collection(db, "withdraw_requests"), {
+          userId: agency.uid,
+          userName: agency.name || 'Agent',
+          amount: Number(adjustForm.amount),
+          currency: 'USD',
+          method: 'Binance TRC20',
+          payoutAddress: withdrawalAddress,
+          status: 'pending',
+          reason: adjustForm.reason || 'Agency Withdrawal',
+          createdAt: serverTimestamp(),
+          updatedAt: serverTimestamp()
+        });
+
+        alert('Withdrawal request submitted successfully!');
+        setShowAdjustModal(false);
+      } catch (error) {
+        console.error("Error submitting withdrawal:", error);
+        alert('Failed to submit request.');
+      } finally {
+        setRequestSent(false)
+      }
+    } else {
+      // Admin Adjustment Logic
+      if (!agency.isAdmin) return;
+      if (!adjustForm.userId || adjustForm.amount === 0) {
+        alert("Please provide User ID and non-zero amount.");
+        return;
+      }
+
+      setRequestSent(true)
+      try {
+        const batch = writeBatch(db);
+
+        // Adjust diamonds: $1 USD = (100 / 0.6) diamonds
+        const diamondShift = Math.round((Number(adjustForm.amount) * 100) / 0.6);
+
+        const userRef = doc(db, "users", adjustForm.userId);
+        batch.update(userRef, {
+          diamonds: increment(diamondShift),
+          updatedAt: serverTimestamp()
+        });
+
+        const adjRef = doc(collection(db, "manual_adjustments"));
+        batch.set(adjRef, {
+          targetUserId: adjustForm.userId,
+          adminId: agency.uid,
+          amountUSD: Number(adjustForm.amount),
+          diamondShift: diamondShift,
+          reason: adjustForm.reason,
+          createdAt: serverTimestamp()
+        });
+
+        await batch.commit();
+        alert('Commission adjusted successfully!');
+        setShowAdjustModal(false);
+      } catch (error) {
+        console.error("Error adjusting commission:", error);
+        alert('Failed to adjust commission.');
+      } finally {
+        setRequestSent(false)
+      }
+    }
   }
 
   // Calculate totals
-  const balance = transactions[0]?.after || 0
   const totalEarned = transactions
     .filter(t => t.type === 'USD' && t.amount > 0)
     .reduce((sum, t) => sum + t.amount, 0)
@@ -149,11 +224,14 @@ export default function CoinsDiamondsPage() {
               <div style={{ fontSize: 12, fontWeight: 700, color: '#bf953f', marginBottom: 8, textTransform: 'uppercase', letterSpacing: '1.5px' }}>Available Balance</div>
               <div style={{ fontSize: 42, fontWeight: 900, marginBottom: 4, display: 'flex', alignItems: 'baseline', gap: 8, color: '#fcf6ba' }}>
                 <span style={{ fontSize: 24, opacity: 0.8 }}>$</span>
-                {(agency?.diamonds * 0.6 || 0).toFixed(2)}
+                {((agency?.diamonds || 0) * 0.6 / 100).toFixed(2)}
               </div>
               <div style={{ display: 'flex', gap: 12, marginTop: 16 }}>
                 <button
-                  onClick={() => setShowAdjustModal(true)}
+                  onClick={() => {
+                    setAdjustForm({ userId: agency?.uid || '', type: 'USD', amount: 0, reason: '' });
+                    setShowAdjustModal(true);
+                  }}
                   style={{
                     padding: '10px 20px',
                     background: goldGradient,
@@ -171,6 +249,27 @@ export default function CoinsDiamondsPage() {
                 >
                   Withdraw Now
                 </button>
+                {agency?.isAdmin && (
+                  <button
+                    onClick={() => {
+                      setAdjustForm({ userId: '', type: 'Adjustment', amount: 0, reason: '' });
+                      setShowAdjustModal(true);
+                    }}
+                    style={{
+                      padding: '10px 20px',
+                      background: '#1e293b',
+                      color: '#fff',
+                      border: '1px solid rgba(191, 149, 63, 0.5)',
+                      borderRadius: 10,
+                      fontSize: 13,
+                      fontWeight: 800,
+                      cursor: 'pointer',
+                      transition: 'all 0.2s'
+                    }}
+                  >
+                    Adjust Commission
+                  </button>
+                )}
               </div>
             </div>
 
@@ -193,7 +292,7 @@ export default function CoinsDiamondsPage() {
                   }
                 `}} />
               <img
-                src="/images/dollr_gold.png"
+                src="/assets/dollr_gold.png"
                 alt="Gold USD Illustration"
                 style={{
                   width: 180,
@@ -230,7 +329,9 @@ export default function CoinsDiamondsPage() {
               boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.05)'
             }}>
               <div style={{ fontSize: 13, color: '#64748b', fontWeight: 600, marginBottom: 8 }}>Pending Withdrawals</div>
-              <div style={{ fontSize: 24, fontWeight: 800, color: '#1a1a1a' }}>$0.00</div>
+              <div style={{ fontSize: 24, fontWeight: 800, color: '#1a1a1a' }}>
+                ${transactions.filter(t => t.status === 'pending').reduce((sum, t) => sum + Math.abs(t.amount), 0).toFixed(2)}
+              </div>
             </div>
           </div>
         </div>
@@ -398,12 +499,42 @@ export default function CoinsDiamondsPage() {
             }}
             onClick={(e) => e.stopPropagation()}
           >
-            <h2 style={{ margin: 0, marginBottom: 8, fontSize: 22, fontWeight: 800, color: '#1e293b' }}>Manual Settlement</h2>
-            <p style={{ margin: 0, marginBottom: 24, fontSize: 13, color: '#64748b' }}>Initialize a manual payout record for this agent.</p>
+            <h2 style={{ margin: 0, marginBottom: 8, fontSize: 22, fontWeight: 800, color: '#1e293b' }}>
+              {adjustForm.type === 'USD' ? 'Withdrawal Request' : 'Commission Adjustment'}
+            </h2>
+            <p style={{ margin: 0, marginBottom: 24, fontSize: 13, color: '#64748b' }}>
+              {adjustForm.type === 'USD'
+                ? 'Enter the amount you wish to withdraw to your TRC20 address.'
+                : 'Manually adjust an agent\'s diamond balance. Use negative for deductions.'}
+            </p>
 
-            <form onSubmit={handleAdjust}>
+            <form onSubmit={handleWithdraw}>
+              {adjustForm.type !== 'USD' && (
+                <div style={{ marginBottom: 20 }}>
+                  <label style={{ display: 'block', fontSize: 12, fontWeight: 700, color: '#475569', marginBottom: 8 }}>Target Agent User ID (UID)</label>
+                  <input
+                    type="text"
+                    placeholder="Enter agent's UID"
+                    value={adjustForm.userId}
+                    onChange={(e) => setAdjustForm({ ...adjustForm, userId: e.target.value })}
+                    style={{
+                      width: '100%',
+                      padding: '12px 16px',
+                      border: '2px solid #e2e8f0',
+                      borderRadius: 12,
+                      fontSize: 14,
+                      boxSizing: 'border-box',
+                      fontWeight: 600,
+                      color: '#1e293b'
+                    }}
+                  />
+                </div>
+              )}
+
               <div style={{ marginBottom: 20 }}>
-                <label style={{ display: 'block', fontSize: 12, fontWeight: 700, color: '#475569', marginBottom: 8 }}>Settlement Amount ($)</label>
+                <label style={{ display: 'block', fontSize: 12, fontWeight: 700, color: '#475569', marginBottom: 8 }}>
+                  {adjustForm.type === 'USD' ? 'Withdraw Amount ($)' : 'Adjustment Amount ($)'}
+                </label>
                 <input
                   type="number"
                   placeholder="0.00"
@@ -424,10 +555,10 @@ export default function CoinsDiamondsPage() {
               </div>
 
               <div style={{ marginBottom: 24 }}>
-                <label style={{ display: 'block', fontSize: 12, fontWeight: 700, color: '#475569', marginBottom: 8 }}>Transaction Memo</label>
+                <label style={{ display: 'block', fontSize: 12, fontWeight: 700, color: '#475569', marginBottom: 8 }}>Withdrawal Memo (Optional)</label>
                 <input
                   type="text"
-                  placeholder="e.g. Weekly Profit Share"
+                  placeholder="e.g. Weekly Profit Payout"
                   value={adjustForm.reason}
                   onChange={(e) => setAdjustForm({ ...adjustForm, reason: e.target.value })}
                   style={{
@@ -458,10 +589,11 @@ export default function CoinsDiamondsPage() {
                     cursor: 'pointer'
                   }}
                 >
-                  Go Back
+                  Cancel
                 </button>
                 <button
                   type="submit"
+                  disabled={requestSent}
                   style={{
                     flex: 1,
                     padding: '14px',
@@ -471,10 +603,10 @@ export default function CoinsDiamondsPage() {
                     borderRadius: 12,
                     fontSize: 14,
                     fontWeight: 800,
-                    cursor: 'pointer'
+                    cursor: requestSent ? 'not-allowed' : 'pointer'
                   }}
                 >
-                  Finalize
+                  {requestSent ? 'Submitting...' : 'Confirm'}
                 </button>
               </div>
             </form>
