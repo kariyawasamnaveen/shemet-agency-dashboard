@@ -11,12 +11,32 @@ export default function DashboardLayout({ children }) {
     const [user, setUser] = useState(null);
 
     useEffect(() => {
-        const unsubscribe = onAuthStateChanged(auth, (user) => {
+        const unsubscribe = onAuthStateChanged(auth, async (user) => {
             if (!user) {
                 router.push('/login');
             } else {
-                setUser(user);
-                setLoading(false);
+                try {
+                    const { doc, getDoc } = await import('firebase/firestore');
+                    const { db } = await import('../../lib/firebase');
+                    const userDoc = await getDoc(doc(db, "users", user.uid));
+
+                    if ((userDoc.exists() && userDoc.data().isAgent) || user.email === 'hknskariyawasamnaveen@gmail.com') {
+                        setUser({
+                            ...user,
+                            ...userDoc.data(),
+                            isAgent: true // Ensure flag is true for UI consistency
+                        });
+                        setLoading(false);
+                    } else {
+                        // Safe fallback if role is missing
+                        const { signOut } = await import('firebase/auth');
+                        await signOut(auth);
+                        router.push('/login');
+                    }
+                } catch (e) {
+                    console.error("Layout Auth Error:", e);
+                    setLoading(false);
+                }
             }
         });
 

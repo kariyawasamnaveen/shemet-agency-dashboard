@@ -1,12 +1,15 @@
 'use client';
 import { useState, useEffect } from 'react';
 import { db } from '../../lib/firebase';
-import { collection, query, where, getDocs, getCountFromServer } from 'firebase/firestore';
+import { collection, query, where, onSnapshot } from 'firebase/firestore';
 import Link from 'next/link';
+import { useAgency } from '../context/AgencyContext';
+import { convertDiamondsToPoints, formatCurrency } from '../../lib/utils/commission';
 
 export default function Dashboard() {
+    const { agent } = useAgency();
     const [stats, setStats] = useState({
-        totalDiamonds: 0,
+        totalRevenuePoints: 0,
         onlineHosts: 0,
         activeLive: 0,
         pendingApps: 0
@@ -15,49 +18,64 @@ export default function Dashboard() {
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
-        const fetchData = async () => {
-            try {
-                // 1. Get Hosts Data (for Earnings & Online Status)
-                // Ideally use aggregation queries for production scale
-                const hostsQuery = query(collection(db, 'users'), where('isHost', '==', true));
-                const hostsSnapshot = await getDocs(hostsQuery);
+        if (!agent?.uid) return;
 
-                let diamonds = 0;
-                let online = 0;
-                let live = 0;
-                const liveList = [];
+        // 1. Listen to Hosts Data (filtered by agencyId)
+        const hostsQuery = query(
+            collection(db, 'users'),
+            where('isHost', '==', true),
+            where('agencyId', '==', agent.uid)
+        );
 
-                hostsSnapshot.forEach(doc => {
-                    const data = doc.data();
-                    diamonds += (data.diamonds || 0);
-                    if (data.isOnline) online++;
-                    if (data.isLive) {
-                        live++;
-                        liveList.push({ id: doc.id, ...data });
-                    }
-                });
+        const unsubscribeHosts = onSnapshot(hostsQuery, (snapshot) => {
+            let diamonds = 0;
+            let online = 0;
+            let live = 0;
+            const liveList = [];
 
-                // 2. Get Pending Applications Count
-                const appsQuery = query(collection(db, 'host_applications'), where('status', '==', 'pending'));
-                const appsSnapshot = await getCountFromServer(appsQuery);
+            snapshot.forEach(doc => {
+                const data = doc.data();
+                diamonds += (data.diamonds || 0);
+                if (data.isOnline) online++;
+                if (data.isLive) {
+                    live++;
+                    liveList.push({ id: doc.id, ...data });
+                }
+            });
 
-                setStats({
-                    totalDiamonds: diamonds,
-                    onlineHosts: online,
-                    activeLive: live,
-                    pendingApps: appsSnapshot.data().count
-                });
-                setLiveHosts(liveList);
+            setStats(prev => ({
+                ...prev,
+                totalRevenuePoints: convertDiamondsToPoints(diamonds),
+                onlineHosts: online,
+                activeLive: live
+            }));
+            setLiveHosts(liveList);
+            setLoading(false);
+        }, (error) => {
+            console.error("Dashboard Hosts Listener Error:", error);
+            setLoading(false);
+        });
 
-            } catch (error) {
-                console.error("Error loading dashboard:", error);
-            } finally {
-                setLoading(false);
-            }
+        // 2. Listen to Pending Applications (filtered by agencyId if applicable, else global/agent specific)
+        // Note: Assuming applications have an agencyId or are related to the agent
+        const appsQuery = query(
+            collection(db, 'host_applications'),
+            where('status', '==', 'pending'),
+            where('agencyId', '==', agent.uid)
+        );
+
+        const unsubscribeApps = onSnapshot(appsQuery, (snapshot) => {
+            setStats(prev => ({
+                ...prev,
+                pendingApps: snapshot.size
+            }));
+        });
+
+        return () => {
+            unsubscribeHosts();
+            unsubscribeApps();
         };
-
-        fetchData();
-    }, []);
+    }, [agent]);
 
     return (
         <div className="space-y-8">
@@ -65,7 +83,7 @@ export default function Dashboard() {
             <div className="flex items-center justify-between">
                 <div>
                     <h1 className="text-3xl font-bold text-white">Dashboard Overview</h1>
-                    <p className="text-slate-400">Welcome back, here's what's happening today.</p>
+                    <p className="text-slate-400">Welcome, {agent?.name || 'Agent'}. Here's what's happening today.</p>
                 </div>
                 <div className="bg-slate-900 px-4 py-2 rounded-xl text-slate-300 border border-slate-800 text-sm font-mono">
                     {new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
@@ -75,14 +93,14 @@ export default function Dashboard() {
             {/* Stats Grid */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                 <StatCard
-                    title="Total Revenue"
-                    value={stats.totalDiamonds.toLocaleString()}
-                    label="Diamonds"
-                    icon="💎"
+                    title="Agency Revenue"
+                    value={formatCurrency(stats.totalRevenuePoints)}
+                    label="Points (60% Conversion)"
+                    icon="💰"
                     color="from-pink-500 to-rose-600"
                 />
                 <StatCard
-                    title="Active Agents"
+                    title="Active Hosts"
                     value={stats.onlineHosts}
                     label="Online Now"
                     icon="🟢"
@@ -130,7 +148,6 @@ export default function Dashboard() {
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
                         {liveHosts.map(host => (
                             <div key={host.id} className="relative group overflow-hidden rounded-2xl border border-slate-800 bg-slate-950">
-                                {/* Stream Thumbnail (User Photo for now) */}
                                 <div className="aspect-video relative">
                                     <div className="absolute inset-0 bg-gradient-to-t from-black/90 to-transparent z-10"></div>
                                     <img
@@ -149,15 +166,14 @@ export default function Dashboard() {
                                     </div>
                                 </div>
 
-                                {/* Quick Stats */}
                                 <div className="p-4 grid grid-cols-2 gap-4 text-center">
                                     <div>
                                         <p className="text-xs text-slate-500 uppercase">Received</p>
-                                        <p className="font-mono text-pink-400 font-bold">{(host.diamonds || 0).toLocaleString()}</p>
+                                        <p className="font-mono text-pink-400 font-bold">{formatCurrency(host.diamonds)}</p>
                                     </div>
                                     <div>
-                                        <p className="text-xs text-slate-500 uppercase">Duration</p>
-                                        <p className="font-mono text-white">00:42:15</p>
+                                        <p className="text-xs text-slate-500 uppercase">Revenue</p>
+                                        <p className="font-mono text-white font-bold">{formatCurrency(convertDiamondsToPoints(host.diamonds))}</p>
                                     </div>
                                 </div>
                             </div>
@@ -178,7 +194,6 @@ export default function Dashboard() {
 function StatCard({ title, value, label, icon, color }) {
     return (
         <div className="bg-slate-900/50 border border-slate-800 rounded-2xl p-6 relative overflow-hidden group hover:border-pink-500/20 transition-all">
-            {/* Background Glow */}
             <div className={`absolute -right-6 -top-6 w-24 h-24 bg-gradient-to-br ${color} opacity-10 blur-2xl group-hover:opacity-20 transition-opacity`}></div>
 
             <div className="flex items-start justify-between relative z-10">

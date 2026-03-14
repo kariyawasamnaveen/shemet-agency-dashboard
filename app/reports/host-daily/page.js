@@ -1,17 +1,116 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
+import { useAgency } from '../../../lib/hooks'
+import { db } from '../../../lib/firebase'
+import { collection, query, where, getDocs, Timestamp, onSnapshot } from 'firebase/firestore'
 
 export default function HostDailyReportPage() {
+    const { agency } = useAgency()
+    const [hosts, setHosts] = useState([])
+    const [dailyStats, setDailyStats] = useState({})
+    const [loading, setLoading] = useState(true)
+    const [searchDate, setSearchDate] = useState(new Date().toISOString().split('T')[0])
+    const [searchTerm, setSearchTerm] = useState('')
+
     const brandPlum = '#3a2639'
 
-    // Mock data for Host Daily Report
-    const dailyData = [
-        { id: '99109710', nickname: 'CútéğīŔt', date: '2026-03-12', liveDuration: '2h 15m', earnings: '$12.50', coins: 1250, status: 'Completed' },
-        { id: '98707969', nickname: 'kim Sadiya', date: '2026-03-12', liveDuration: '4h 05m', earnings: '$45.20', coins: 4520, status: 'Completed' },
-        { id: '98704925', nickname: '_Aliza★', date: '2026-03-12', liveDuration: '1h 30m', earnings: '$8.00', coins: 800, status: 'Completed' },
-        { id: '98700439', nickname: 'Smile smiley', date: '2026-03-12', liveDuration: '0h 45m', earnings: '$3.50', coins: 350, status: 'In Review' },
-    ]
+    // 1. Fetch agency hosts
+    useEffect(() => {
+        if (!agency?.agencyId) return;
+
+        const q = query(
+            collection(db, "users"),
+            where("isHost", "==", true),
+            where("agencyId", "==", agency.agencyId)
+        );
+
+        const unsubscribe = onSnapshot(q, (snapshot) => {
+            const list = snapshot.docs.map(doc => ({
+                id: doc.id,
+                nickname: doc.data().name || 'No Name',
+                level: doc.data().level || 0,
+                ...doc.data()
+            }));
+            setHosts(list);
+        });
+
+        return () => unsubscribe();
+    }, [agency]);
+
+    // 2. Fetch and aggregate transactions for searching date
+    const fetchDailyStats = async () => {
+        if (!agency?.agencyId || hosts.length === 0) return;
+
+        setLoading(true);
+        try {
+            const startOfDay = new Date(searchDate);
+            startOfDay.setHours(0, 0, 0, 0);
+            const endOfDay = new Date(searchDate);
+            endOfDay.setHours(23, 59, 59, 999);
+
+            const q = query(
+                collection(db, "gift_transactions"),
+                where("timestamp", ">=", Timestamp.fromDate(startOfDay)),
+                where("timestamp", "<=", Timestamp.fromDate(endOfDay))
+            );
+
+            const snapshot = await getDocs(q);
+            const stats = {};
+
+            // Initialize stats for each agency host
+            hosts.forEach(h => {
+                stats[h.id] = { coins: 0, callDiamonds: 0, duration: '0h 0m', status: 'Completed' };
+            });
+
+            // 2a. Process gift transactions
+            snapshot.docs.forEach(doc => {
+                const data = doc.data();
+                if (stats[data.receiverId]) {
+                    stats[data.receiverId].coins += (data.diamondAmount || 0);
+                }
+            });
+
+            // 2b. Process call transactions
+            const callsQuery = query(
+                collection(db, "calls"),
+                where("endedAt", ">=", Timestamp.fromDate(startOfDay)),
+                where("endedAt", "<=", Timestamp.fromDate(endOfDay)),
+                where("receiverId", "in", hosts.map(h => h.id).slice(0, 10))
+            );
+            const callsSnapshot = await getDocs(callsQuery);
+            callsSnapshot.docs.forEach(doc => {
+                const data = doc.data();
+                if (stats[data.receiverId]) {
+                    stats[data.receiverId].callDiamonds += (data.diamondsEarned || 0);
+                }
+            });
+
+            setDailyStats(stats);
+        } catch (error) {
+            console.error("Error fetching daily report:", error);
+        } finally {
+            setLoading(false);
+        }
+    }
+
+    useEffect(() => {
+        fetchDailyStats();
+    }, [searchDate, hosts]);
+
+    // Prepare table data
+    const dailyData = hosts
+        .filter(h => h.id.includes(searchTerm) || h.nickname.toLowerCase().includes(searchTerm.toLowerCase()))
+        .map(h => ({
+            id: h.id,
+            nickname: h.nickname,
+            level: h.level,
+            date: searchDate,
+            liveDuration: dailyStats[h.id]?.duration || '0h 0m',
+            coins: (dailyStats[h.id]?.coins || 0) + (dailyStats[h.id]?.callDiamonds || 0),
+            earnings: `$${((((dailyStats[h.id]?.coins || 0) + (dailyStats[h.id]?.callDiamonds || 0)) * 0.6) / 100).toFixed(2)}`,
+            status: dailyStats[h.id]?.status || 'Completed'
+        }));
 
     return (
         <main style={{ background: '#f0f2f5', minHeight: '100vh', padding: '16px 16px' }}>
@@ -53,10 +152,11 @@ export default function HostDailyReportPage() {
                                 <tr style={{ background: '#fafafa', borderBottom: '1px solid #f0f0f0' }}>
                                     <th style={{ padding: '16px', fontSize: 12, fontWeight: 600, color: '#666' }}>Host ID</th>
                                     <th style={{ padding: '16px', fontSize: 12, fontWeight: 600, color: '#666' }}>Nickname</th>
+                                    <th style={{ padding: '16px', fontSize: 12, fontWeight: 600, color: '#666' }}>Level</th>
                                     <th style={{ padding: '16px', fontSize: 12, fontWeight: 600, color: '#666' }}>Date</th>
                                     <th style={{ padding: '16px', fontSize: 12, fontWeight: 600, color: '#666' }}>Live Duration</th>
-                                    <th style={{ padding: '16px', fontSize: 12, fontWeight: 600, color: '#666' }}>Coins Earned</th>
-                                    <th style={{ padding: '16px', fontSize: 12, fontWeight: 600, color: '#666' }}>USD Earnings</th>
+                                    <th style={{ padding: '16px', fontSize: 12, fontWeight: 600, color: '#666' }}>Total Diamonds</th>
+                                    <th style={{ padding: '16px', fontSize: 12, fontWeight: 600, color: '#666' }}>USD Earnings (60%)</th>
                                     <th style={{ padding: '16px', fontSize: 12, fontWeight: 600, color: '#666' }}>Status</th>
                                 </tr>
                             </thead>
@@ -65,9 +165,12 @@ export default function HostDailyReportPage() {
                                     <tr key={i} style={{ borderBottom: '1px solid #f5f5f5' }}>
                                         <td style={{ padding: '16px', fontSize: 13, color: '#3a2639', fontWeight: 500 }}>{row.id}</td>
                                         <td style={{ padding: '16px', fontSize: 13 }}>{row.nickname}</td>
+                                        <td style={{ padding: '16px', fontSize: 13 }}>
+                                            <span style={{ background: '#7c3aed', color: '#fff', padding: '2px 8px', borderRadius: 10, fontSize: 10 }}>Lv.{row.level}</span>
+                                        </td>
                                         <td style={{ padding: '16px', fontSize: 13, color: '#666' }}>{row.date}</td>
                                         <td style={{ padding: '16px', fontSize: 13, color: '#666' }}>{row.liveDuration}</td>
-                                        <td style={{ padding: '16px', fontSize: 13, color: '#666' }}>{row.coins}</td>
+                                        <td style={{ padding: '16px', fontSize: 13, color: '#666' }}>{row.coins.toLocaleString()}</td>
                                         <td style={{ padding: '16px', fontSize: 13, color: '#f59e0b', fontWeight: 600 }}>{row.earnings}</td>
                                         <td style={{ padding: '16px', fontSize: 13, color: row.status === 'Completed' ? '#10b981' : '#f59e0b' }}>{row.status}</td>
                                     </tr>

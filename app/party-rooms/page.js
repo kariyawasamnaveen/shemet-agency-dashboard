@@ -1,9 +1,8 @@
 'use client'
 
-import { useState, useEffect } from 'react'
-import PartyRoomTable from '../components/PartyRoomTable'
-
-// Mock data — replace with Firebase real-time listener later
+import { db } from '../../lib/firebase'
+import { collection, query, where, onSnapshot } from 'firebase/firestore'
+import { useAgency } from '../../lib/hooks'
 const MOCK_ROOMS = [
   {
     id: '1',
@@ -44,22 +43,66 @@ const MOCK_ROOMS = [
 ]
 
 export default function PartyRoomsPage() {
+  const { agency } = useAgency()
   const [rooms, setRooms] = useState([])
+  const [hostsMap, setHostsMap] = useState({})
   const [filteredRooms, setFilteredRooms] = useState([])
   const [status, setStatus] = useState('active')
   const [loading, setLoading] = useState(true)
 
+  // 1. Fetch agency hosts as a lookup
   useEffect(() => {
-    // Simulate Firebase real-time listener
+    if (!agency?.agencyId) return;
+
+    const q = query(
+      collection(db, "users"),
+      where("isHost", "==", true),
+      where("agencyId", "==", agency.agencyId)
+    );
+
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const hMap = {};
+      snapshot.docs.forEach(doc => {
+        hMap[doc.id] = doc.data().name || 'No Name';
+      });
+      setHostsMap(hMap);
+    });
+
+    return () => unsubscribe();
+  }, [agency]);
+
+  // 2. Listen to real party rooms
+  useEffect(() => {
+    if (Object.keys(hostsMap).length === 0) {
+      if (!loading) setLoading(false);
+      return;
+    }
+
     setLoading(true)
-    setTimeout(() => {
-      setRooms(MOCK_ROOMS)
-      setLoading(false)
-    }, 500)
-  }, [])
+    const q = query(collection(db, "party_rooms"));
+
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const list = snapshot.docs
+        .map(doc => ({
+          id: doc.id,
+          ...doc.data(),
+          creator: hostsMap[doc.data().hostId] || 'Unknown Creator',
+          name: doc.data().name || `Room #${doc.id.substring(0, 5)}`,
+          participants: doc.data().participants?.length || 0,
+          durationMins: doc.data().createdAt ? Math.floor((Date.now() - doc.data().createdAt.toDate().getTime()) / 60000) : 0
+        }))
+        // Filter by agency association
+        .filter(r => hostsMap[r.hostId]);
+
+      setRooms(list);
+      setLoading(false);
+    });
+
+    return () => unsubscribe();
+  }, [hostsMap]);
 
   useEffect(() => {
-    // Apply filter
+    // Apply status filter locally
     const filtered = rooms.filter(room => {
       if (status === 'all') return true
       return room.status === status
@@ -69,8 +112,7 @@ export default function PartyRoomsPage() {
 
   const handleCloseRoom = (roomId) => {
     if (confirm('Are you sure you want to close this party room?')) {
-      setRooms(rooms.map(r => r.id === roomId ? { ...r, status: 'closed' } : r))
-      alert('Party room closed successfully')
+      alert('Closing rooms via dashboard requires elevated permissions.')
     }
   }
 

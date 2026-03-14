@@ -1,8 +1,14 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
+import { useAgency } from '../../../../lib/hooks'
+import { db } from '../../../../lib/firebase'
+import { collection, query, where, onSnapshot, addDoc, serverTimestamp, getDocs } from 'firebase/firestore'
 
 export default function HostsListPage() {
+    const { agency, loading: agencyLoading } = useAgency()
+    const [hosts, setHosts] = useState([])
+    const [loading, setLoading] = useState(true)
     const [showAddHostModal, setShowAddHostModal] = useState(false)
     const [addHostForm, setAddHostForm] = useState({ id: '', contact: '' })
     const [requestSent, setRequestSent] = useState(false)
@@ -11,26 +17,130 @@ export default function HostsListPage() {
     const brandPlum = '#3a2639'
     const brandPlumLight = '#7d537b'
 
-    const handleAddHost = (e) => {
+    // Fetch real hosts from Firestore
+    useEffect(() => {
+        if (!agency?.agencyId) return;
+
+        console.log("Fetching hosts for agency:", agency.agencyId);
+
+        const q = query(
+            collection(db, "users"),
+            where("isHost", "==", true),
+            where("agencyId", "==", agency.agencyId)
+        );
+
+        const unsubscribe = onSnapshot(q, (snapshot) => {
+            const hostList = snapshot.docs.map(doc => ({
+                id: doc.id,
+                nickname: doc.data().name || 'No Name',
+                gender: doc.data().gender || 'Unknown',
+                phone: doc.data().phoneNumber || '-',
+                email: doc.data().email || '-',
+                charm: doc.data().level || 0,
+                registerTime: doc.data().createdAt?.toDate()?.toLocaleString() || '-',
+                lastActive: doc.data().lastSeen?.toDate()?.toLocaleString() || '-',
+                faceStatus: doc.data().isVerified ? 'verified' : 'unverified',
+                status: 'Active',
+                ...doc.data()
+            }));
+            setHosts(hostList);
+            setLoading(false);
+        }, (error) => {
+            console.error("Error fetching hosts:", error);
+            setLoading(false);
+        });
+
+        return () => unsubscribe();
+    }, [agency]);
+
+    const handleAddHost = async (e) => {
         e.preventDefault()
+        if (!agency?.agencyId) {
+            alert("Scale Error: Agency profile not fully loaded.");
+            return;
+        }
+
         setRequestSent(true)
-        setTimeout(() => {
-            setShowAddHostModal(false)
-            setRequestSent(false)
-            setAddHostForm({ id: '', contact: '' })
-            alert('Request successfully sent to the host! Waiting for approval.')
-        }, 1500)
+
+        try {
+            // Check if user exists in Shemet app
+            const userQuery = query(collection(db, "users"), where("uid", "==", addHostForm.id));
+            const userSnap = await getDocs(userQuery);
+
+            if (userSnap.empty) {
+                // Try searching by custom shemetId if that's what's used
+                const idQuery = query(collection(db, "users"), where("shemetId", "==", addHostForm.id));
+                const idSnap = await getDocs(idQuery);
+
+                if (idSnap.empty) {
+                    alert("User not found! Please check the Shemet ID.");
+                    setRequestSent(false);
+                    return;
+                }
+            }
+
+            // Create host invitation
+            await addDoc(collection(db, "host_invitations"), {
+                targetUserId: addHostForm.id,
+                agencyId: agency.agencyId,
+                agencyName: agency.name || 'Your Agency',
+                agencyPhoto: agency.photoURL || '',
+                status: 'pending',
+                inviteCode: Math.random().toString(36).substring(7).toUpperCase(),
+                createdAt: serverTimestamp(),
+                updatedAt: serverTimestamp()
+            });
+
+            setTimeout(() => {
+                setShowAddHostModal(false)
+                setRequestSent(false)
+                setAddHostForm({ id: '', contact: '' })
+                alert('Invitation sent! Host will see it in their app notifications.')
+            }, 1000)
+        } catch (error) {
+            console.error("Error adding host:", error);
+            alert("Failed to send invitation. Please try again.");
+            setRequestSent(false);
+        }
     }
 
-    // Mock data for the table
-    const hostsData = [
-        { id: '99109710', nickname: 'CútéğīŔt', gender: 'Female', phone: '-', email: 'em****@gmail.com', charm: 0, registerTime: '2025-01-04 22:24:46.0', lastActive: '2025-01-31 21:05:59', faceStatus: 'unverified', status: 'Active' },
-        { id: '98707969', nickname: 'kim Sadiya', gender: 'Female', phone: '-', email: 'je****@gmail.com', charm: 0, registerTime: '2024-12-31 22:26:10.0', lastActive: '2025-01-12 20:44:42', faceStatus: 'verified', status: 'Active' },
-        { id: '98704925', nickname: '_Aliza★', gender: 'Female', phone: '-', email: 'za****@gmail.com', charm: 0, registerTime: '2024-12-31 21:33:59.0', lastActive: '2025-01-05 19:36:43', faceStatus: 'verified', status: 'Active' },
-        { id: '98700439', nickname: 'Smile smiley', gender: 'Female', phone: '-', email: 'mi****@gmail.com', charm: 0, registerTime: '2024-12-31 20:16:50.0', lastActive: '2024-12-31 20:18:52', faceStatus: 'unverified', status: 'Active' },
-        { id: '98699603', nickname: 'Sharati Larki', gender: 'Female', phone: '-', email: 'hi****@gmail.com', charm: 0, registerTime: '2024-12-31 19:46:09.0', lastActive: '2024-12-31 23:45:57', faceStatus: 'unverified', status: 'Active' },
-        { id: '98688693', nickname: 'I am guriya 🥰', gender: 'Female', phone: '-', email: 'ma****@gmail.com', charm: 0, registerTime: '2024-12-31 17:20:21.0', lastActive: '2025-01-04 19:43:20', faceStatus: 'unverified', status: 'Active' },
-    ]
+    const [invitations, setInvitations] = useState([])
+    const [invitationsLoading, setInvitationsLoading] = useState(false)
+
+    // Fetch host invitations
+    useEffect(() => {
+        if (!agency?.agencyId || activeTab !== 'record') return;
+
+        setInvitationsLoading(true);
+        console.log("Fetching invitations for agency:", agency.agencyId);
+
+        const q = query(
+            collection(db, "host_invitations"),
+            where("agencyId", "==", agency.agencyId)
+        );
+
+        const unsubscribe = onSnapshot(q, (snapshot) => {
+            const inviteList = snapshot.docs.map(doc => ({
+                id: doc.id,
+                targetUserId: doc.data().targetUserId || '-',
+                status: doc.data().status || 'pending',
+                inviteCode: doc.data().inviteCode || '-',
+                createdAt: doc.data().createdAt?.toDate()?.toLocaleString() || '-',
+                updatedAt: doc.data().updatedAt?.toDate()?.toLocaleString() || '-',
+                ...doc.data()
+            }));
+            setInvitations(inviteList);
+            setInvitationsLoading(false);
+        }, (error) => {
+            console.error("Error fetching invitations:", error);
+            setInvitationsLoading(false);
+        });
+
+        return () => unsubscribe();
+    }, [agency, activeTab]);
+
+    // Filter hosts based on search (simplified for now)
+    const hostsData = activeTab === 'agreed' ? hosts : invitations;
 
     return (
         <main style={{ background: '#f0f2f5', minHeight: '100vh', padding: '16px 16px' }}>
@@ -214,7 +324,9 @@ export default function HostsListPage() {
 
                         {/* Stats Row */}
                         <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 16, marginBottom: 16 }}>
-                            <span style={{ fontSize: 14, color: '#111', fontWeight: 500 }}>Total of bound hosts: {hostsData.length}</span>
+                            <span style={{ fontSize: 14, color: '#111', fontWeight: 500 }}>
+                                {activeTab === 'agreed' ? 'Total of bound hosts:' : 'Total invitations sent:'} {hostsData.length}
+                            </span>
                             <button style={{
                                 background: '#fff',
                                 color: '#666',
@@ -234,45 +346,93 @@ export default function HostsListPage() {
                             <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
                                 <thead>
                                     <tr style={{ background: '#fafafa', borderBottom: '1px solid #f0f0f0' }}>
-                                        <th style={{ padding: '16px', fontSize: 12, fontWeight: 600, color: '#666' }}>ID</th>
-                                        <th style={{ padding: '16px', fontSize: 12, fontWeight: 600, color: '#666' }}>NickName</th>
-                                        <th style={{ padding: '16px', fontSize: 12, fontWeight: 600, color: '#666' }}>Gender</th>
-                                        <th style={{ padding: '16px', fontSize: 12, fontWeight: 600, color: '#666' }}>Phone</th>
-                                        <th style={{ padding: '16px', fontSize: 12, fontWeight: 600, color: '#666' }}>Email</th>
-                                        <th style={{ padding: '16px', fontSize: 12, fontWeight: 600, color: '#666' }}>Shemet Level</th>
-                                        <th style={{ padding: '16px', fontSize: 12, fontWeight: 600, color: '#666' }}>Poster</th>
-                                        <th style={{ padding: '16px', fontSize: 12, fontWeight: 600, color: '#666' }}>Recent Live Record</th>
-                                        <th style={{ padding: '16px', fontSize: 12, fontWeight: 600, color: '#666' }}>Register Time</th>
-                                        <th style={{ padding: '16px', fontSize: 12, fontWeight: 600, color: '#666' }}>Last Active Time</th>
-                                        <th style={{ padding: '16px', fontSize: 12, fontWeight: 600, color: '#666' }}>Face Verification Result</th>
-                                        <th style={{ padding: '16px', fontSize: 12, fontWeight: 600, color: '#666' }}>Deletion Status</th>
+                                        {activeTab === 'agreed' ? (
+                                            <>
+                                                <th style={{ padding: '16px', fontSize: 12, fontWeight: 600, color: '#666' }}>ID</th>
+                                                <th style={{ padding: '16px', fontSize: 12, fontWeight: 600, color: '#666' }}>NickName</th>
+                                                <th style={{ padding: '16px', fontSize: 12, fontWeight: 600, color: '#666' }}>Gender</th>
+                                                <th style={{ padding: '16px', fontSize: 12, fontWeight: 600, color: '#666' }}>Phone</th>
+                                                <th style={{ padding: '16px', fontSize: 12, fontWeight: 600, color: '#666' }}>Email</th>
+                                                <th style={{ padding: '16px', fontSize: 12, fontWeight: 600, color: '#666' }}>Shemet Level</th>
+                                                <th style={{ padding: '16px', fontSize: 12, fontWeight: 600, color: '#666' }}>Poster</th>
+                                                <th style={{ padding: '16px', fontSize: 12, fontWeight: 600, color: '#666' }}>Recent Live Record</th>
+                                                <th style={{ padding: '16px', fontSize: 12, fontWeight: 600, color: '#666' }}>Register Time</th>
+                                                <th style={{ padding: '16px', fontSize: 12, fontWeight: 600, color: '#666' }}>Last Active Time</th>
+                                                <th style={{ padding: '16px', fontSize: 12, fontWeight: 600, color: '#666' }}>Face Verification Result</th>
+                                                <th style={{ padding: '16px', fontSize: 12, fontWeight: 600, color: '#666' }}>Deletion Status</th>
+                                            </>
+                                        ) : (
+                                            <>
+                                                <th style={{ padding: '16px', fontSize: 12, fontWeight: 600, color: '#666' }}>Target User ID</th>
+                                                <th style={{ padding: '16px', fontSize: 12, fontWeight: 600, color: '#666' }}>Status</th>
+                                                <th style={{ padding: '16px', fontSize: 12, fontWeight: 600, color: '#666' }}>Invite Code</th>
+                                                <th style={{ padding: '16px', fontSize: 12, fontWeight: 600, color: '#666' }}>Sent Time</th>
+                                                <th style={{ padding: '16px', fontSize: 12, fontWeight: 600, color: '#666' }}>Last Updated</th>
+                                            </>
+                                        )}
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    {hostsData.map((row) => (
-                                        <tr key={row.id} style={{ borderBottom: '1px solid #f5f5f5' }}>
-                                            <td style={{ padding: '16px', fontSize: 13, color: brandPlumLight, fontWeight: 500 }}>{row.id}</td>
-                                            <td style={{ padding: '16px', fontSize: 13, color: '#333' }}>{row.nickname}</td>
-                                            <td style={{ padding: '16px', fontSize: 13, color: '#666' }}>{row.gender}</td>
-                                            <td style={{ padding: '16px', fontSize: 13, color: '#666' }}>{row.phone}</td>
-                                            <td style={{ padding: '16px', fontSize: 13, color: '#666' }}>{row.email}</td>
-                                            <td style={{ padding: '16px', fontSize: 13, color: '#666' }}>{row.charm}</td>
-                                            <td style={{ padding: '16px' }}>
-                                                <div style={{ width: 44, height: 44, background: '#f5f5f5', borderRadius: 4, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#ccc" strokeWidth="2"><rect x="3" y="3" width="18" height="18" rx="2" /><circle cx="8.5" cy="8.5" r="1.5" /><path d="M21 15l-5-5L5 21" /></svg>
-                                                </div>
+                                    {(activeTab === 'agreed' ? loading : invitationsLoading) ? (
+                                        <tr>
+                                            <td colSpan="12" style={{ padding: '32px', textAlign: 'center', color: '#64748b' }}>
+                                                Loading {activeTab === 'agreed' ? 'hosts' : 'invitations'}...
                                             </td>
-                                            <td style={{ padding: '16px' }}>
-                                                <div style={{ width: 44, height: 44, background: '#f5f5f5', borderRadius: 4, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#ccc" strokeWidth="2"><rect x="3" y="3" width="18" height="18" rx="2" /><circle cx="8.5" cy="8.5" r="1.5" /><path d="M21 15l-5-5L5 21" /></svg>
-                                                </div>
-                                            </td>
-                                            <td style={{ padding: '16px', fontSize: 13, color: '#666' }}>{row.registerTime}</td>
-                                            <td style={{ padding: '16px', fontSize: 13, color: '#666' }}>{row.lastActive}</td>
-                                            <td style={{ padding: '16px', fontSize: 13, color: row.faceStatus === 'verified' ? '#10b981' : '#666' }}>{row.faceStatus}</td>
-                                            <td style={{ padding: '16px', fontSize: 13, color: '#10b981', fontWeight: 500 }}>{row.status}</td>
                                         </tr>
-                                    ))}
+                                    ) : hostsData.length === 0 ? (
+                                        <tr>
+                                            <td colSpan="12" style={{ padding: '32px', textAlign: 'center', color: '#64748b' }}>
+                                                No {activeTab === 'agreed' ? 'hosts' : 'invitation records'} found.
+                                            </td>
+                                        </tr>
+                                    ) : (
+                                        hostsData.map((row) => (
+                                            <tr key={row.id} style={{ borderBottom: '1px solid #f5f5f5' }}>
+                                                {activeTab === 'agreed' ? (
+                                                    <>
+                                                        <td style={{ padding: '16px', fontSize: 13, color: brandPlumLight, fontWeight: 500 }}>{row.uid || row.id}</td>
+                                                        <td style={{ padding: '16px', fontSize: 13, color: '#333' }}>{row.nickname}</td>
+                                                        <td style={{ padding: '16px', fontSize: 13, color: '#666' }}>{row.gender}</td>
+                                                        <td style={{ padding: '16px', fontSize: 13, color: '#666' }}>{row.phone}</td>
+                                                        <td style={{ padding: '16px', fontSize: 13, color: '#666' }}>{row.email}</td>
+                                                        <td style={{ padding: '16px', fontSize: 13, color: '#666' }}>{row.charm}</td>
+                                                        <td style={{ padding: '16px' }}>
+                                                            <div style={{ width: 44, height: 44, background: '#f5f5f5', borderRadius: 4, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#ccc" strokeWidth="2"><rect x="3" y="3" width="18" height="18" rx="2" /><circle cx="8.5" cy="8.5" r="1.5" /><path d="M21 15l-5-5L5 21" /></svg>
+                                                            </div>
+                                                        </td>
+                                                        <td style={{ padding: '16px' }}>
+                                                            <div style={{ width: 44, height: 44, background: '#f5f5f5', borderRadius: 4, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#ccc" strokeWidth="2"><rect x="3" y="3" width="18" height="18" rx="2" /><circle cx="8.5" cy="8.5" r="1.5" /><path d="M21 15l-5-5L5 21" /></svg>
+                                                            </div>
+                                                        </td>
+                                                        <td style={{ padding: '16px', fontSize: 13, color: '#666' }}>{row.registerTime}</td>
+                                                        <td style={{ padding: '16px', fontSize: 13, color: '#666' }}>{row.lastActive}</td>
+                                                        <td style={{ padding: '16px', fontSize: 13, color: row.faceStatus === 'verified' ? '#10b981' : '#666' }}>{row.faceStatus}</td>
+                                                        <td style={{ padding: '16px', fontSize: 13, color: '#10b981', fontWeight: 500 }}>{row.status}</td>
+                                                    </>
+                                                ) : (
+                                                    <>
+                                                        <td style={{ padding: '16px', fontSize: 13, color: brandPlumLight, fontWeight: 500 }}>{row.targetUserId}</td>
+                                                        <td style={{ padding: '16px' }}>
+                                                            <span style={{
+                                                                padding: '4px 10px',
+                                                                borderRadius: 20,
+                                                                fontSize: 12,
+                                                                fontWeight: 600,
+                                                                textTransform: 'capitalize',
+                                                                background: row.status === 'pending' ? '#fffbeb' : row.status === 'accepted' ? '#f0fdf4' : '#fef2f2',
+                                                                color: row.status === 'pending' ? '#b45309' : row.status === 'accepted' ? '#15803d' : '#b91c1c'
+                                                            }}>{row.status}</span>
+                                                        </td>
+                                                        <td style={{ padding: '16px', fontSize: 13, color: '#666' }}>{row.inviteCode}</td>
+                                                        <td style={{ padding: '16px', fontSize: 13, color: '#666' }}>{row.createdAt}</td>
+                                                        <td style={{ padding: '16px', fontSize: 13, color: '#666' }}>{row.updatedAt}</td>
+                                                    </>
+                                                )}
+                                            </tr>
+                                        ))
+                                    )}
                                 </tbody>
                             </table>
                         </div>

@@ -37,7 +37,8 @@ export default function LeaderboardTable({ rankings = [] }) {
             <th style={{ padding: 16, textAlign: 'left', fontSize: 12, fontWeight: 600, color: '#6b7280', width: 80 }}>Rank</th>
             <th style={{ padding: 16, textAlign: 'left', fontSize: 12, fontWeight: 600, color: '#6b7280' }}>Name</th>
             <th style={{ padding: 16, textAlign: 'left', fontSize: 12, fontWeight: 600, color: '#6b7280' }}>Level</th>
-            <th style={{ padding: 16, textAlign: 'left', fontSize: 12, fontWeight: 600, color: '#6b7280' }}>Earnings</th>
+            <th style={{ padding: 16, textAlign: 'left', fontSize: 12, fontWeight: 600, color: '#6b7280' }}>Diamonds</th>
+            <th style={{ padding: 16, textAlign: 'left', fontSize: 12, fontWeight: 600, color: '#6b7280' }}>Withdraw पॉइंट्स (60%)</th>
             <th style={{ padding: 16, textAlign: 'left', fontSize: 12, fontWeight: 600, color: '#6b7280' }}>Type</th>
           </tr>
         </thead>
@@ -63,8 +64,11 @@ export default function LeaderboardTable({ rankings = [] }) {
                   Level {user.level}
                 </span>
               </td>
-              <td style={{ padding: 16, fontSize: 14, fontWeight: 700, color: '#059669' }}>
-                ${user.earnings.toLocaleString()}
+              <td style={{ padding: 16, fontSize: 14, fontWeight: 600, color: '#1f2937' }}>
+                {user.earnings.toLocaleString()}
+              </td>
+              <td style={{ padding: 16, fontSize: 14, fontWeight: 700, color: '#f59e0b' }}>
+                ${(user.withdrawPoints / 100).toFixed(2)}
               </td>
               <td style={{ padding: 16, fontSize: 12 }}>
                 <span style={{

@@ -1,16 +1,13 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { useAgency } from '../../lib/hooks'
+import { db } from '../../lib/firebase'
+import { doc, updateDoc, collection, query, where, onSnapshot, orderBy, limit } from 'firebase/firestore'
 import TransactionTable from '../components/TransactionTable'
 
-// Mock data updated for USD
-const MOCK_TRANSACTIONS = [
-  { id: '1', userName: 'Settlement #821', type: 'USD', amount: 450.00, reason: 'Weekly Commission', before: 0, after: 450.00, timestamp: Date.now() - 3600000 },
-  { id: '2', userName: 'Withdrawal #102', type: 'USD', amount: -200.00, reason: 'TRC20 Payout', before: 450.00, after: 250.00, timestamp: Date.now() - 7200000 },
-  { id: '3', userName: 'Settlement #820', type: 'USD', amount: 320.50, reason: 'Weekly Commission', before: 250.00, after: 570.50, timestamp: Date.now() - 10800000 },
-]
-
 export default function CoinsDiamondsPage() {
+  const { agency } = useAgency()
   const [transactions, setTransactions] = useState([])
   const [loading, setLoading] = useState(true)
   const [showAdjustModal, setShowAdjustModal] = useState(false)
@@ -22,48 +19,73 @@ export default function CoinsDiamondsPage() {
   const goldGradient = 'linear-gradient(135deg, #bf953f 0%, #fcf6ba 45%, #b38728 70%, #fbf5b7 100%)'
   const darkGoldBg = 'linear-gradient(135deg, #1a1a1a 0%, #2d2d2d 100%)'
 
+  // Initialize data from Agency profile
   useEffect(() => {
-    setLoading(true)
-    setTimeout(() => {
-      setTransactions(MOCK_TRANSACTIONS)
-      setLoading(false)
-    }, 500)
-  }, [])
-
-  const handleAdjust = (e) => {
-    e.preventDefault()
-    if (adjustForm.amount === 0) {
-      alert('Please enter an amount')
-      return
+    if (agency) {
+      setWithdrawalAddress(agency.payoutAddress || '')
     }
+  }, [agency])
 
-    const newTx = {
-      id: Date.now().toString(),
-      userName: 'Admin Adjustment',
-      type: 'USD',
-      amount: parseFloat(adjustForm.amount),
-      reason: adjustForm.reason || 'Manual Adjustment',
-      before: transactions[0]?.after || 0,
-      after: (transactions[0]?.after || 0) + parseFloat(adjustForm.amount),
-      timestamp: Date.now(),
-    }
+  // Fetch real transactions (withdrawal requests)
+  useEffect(() => {
+    if (!agency?.uid) return;
 
-    setTransactions([newTx, ...transactions])
-    setAdjustForm({ userId: '', type: 'USD', amount: 0, reason: '' })
-    setShowAdjustModal(false)
-    alert('Adjustment successful!')
-  }
+    const q = query(
+      collection(db, "withdraw_requests"),
+      where("userId", "==", agency.uid),
+      orderBy("createdAt", "desc"),
+      limit(50)
+    );
 
-  const handleUpdateAddress = () => {
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const txs = snapshot.docs.map(doc => ({
+        id: doc.id,
+        userName: `Withdrawal #${doc.id.substring(0, 5)}`,
+        type: 'USD',
+        amount: -doc.data().amount,
+        reason: `${doc.data().method || 'TRC20'} Payout (${doc.data().status})`,
+        before: 0, // Simplified for now
+        after: 0,
+        timestamp: doc.data().createdAt?.toDate()?.getTime() || Date.now(),
+        status: doc.data().status
+      }));
+      setTransactions(txs);
+      setLoading(false);
+    }, (error) => {
+      console.error("Error fetching transactions:", error);
+      setLoading(false);
+    });
+
+    return () => unsubscribe();
+  }, [agency]);
+
+  const handleUpdateAddress = async () => {
     if (!withdrawalAddress) {
       alert('Please enter a valid address')
       return
     }
+    if (!agency?.uid) return;
+
     setIsUpdatingAddress(true)
-    setTimeout(() => {
-      setIsUpdatingAddress(false)
+    try {
+      await updateDoc(doc(db, "users", agency.uid), {
+        payoutAddress: withdrawalAddress,
+        updatedAt: new Date()
+      });
       alert('Binance TRC20 address updated successfully!')
-    }, 1000)
+    } catch (error) {
+      console.error("Error updating address:", error);
+      alert('Failed to update address. Please try again.');
+    } finally {
+      setIsUpdatingAddress(false)
+    }
+  }
+
+  const handleAdjust = (e) => {
+    e.preventDefault()
+    // Manual adjustments could be implemented as a separate "commission_adjustments" collection
+    alert('Real-time manual adjustments are coming soon. Please use withdrawal requests for now.')
+    setShowAdjustModal(false)
   }
 
   // Calculate totals
@@ -127,7 +149,7 @@ export default function CoinsDiamondsPage() {
               <div style={{ fontSize: 12, fontWeight: 700, color: '#bf953f', marginBottom: 8, textTransform: 'uppercase', letterSpacing: '1.5px' }}>Available Balance</div>
               <div style={{ fontSize: 42, fontWeight: 900, marginBottom: 4, display: 'flex', alignItems: 'baseline', gap: 8, color: '#fcf6ba' }}>
                 <span style={{ fontSize: 24, opacity: 0.8 }}>$</span>
-                {balance.toFixed(2)}
+                {(agency?.diamonds * 0.6 || 0).toFixed(2)}
               </div>
               <div style={{ display: 'flex', gap: 12, marginTop: 16 }}>
                 <button

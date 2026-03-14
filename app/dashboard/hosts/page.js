@@ -1,40 +1,71 @@
 'use client';
 import { useState, useEffect } from 'react';
 import { db } from '../../../lib/firebase';
-import { collection, query, where, getDocs, orderBy } from 'firebase/firestore';
+import { collection, query, where, onSnapshot, addDoc, serverTimestamp } from 'firebase/firestore';
+import { useAgency } from '../../context/AgencyContext';
+import { formatCurrency } from '../../../lib/utils/commission';
 
 export default function HostsPage() {
+    const { agent } = useAgency();
     const [hosts, setHosts] = useState([]);
     const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
+    const [showAddModal, setShowAddModal] = useState(false);
+    const [inviteHostId, setInviteHostId] = useState('');
+    const [inviteLoading, setInviteLoading] = useState(false);
+    const [inviteError, setInviteError] = useState('');
 
     useEffect(() => {
-        const fetchHosts = async () => {
-            try {
-                // Query users where isHost is true
-                // Note: You might need to create an index in Firebase for compound queries
-                // For now, client-side filtering might be safer if the dataset is small
-                const q = query(
-                    collection(db, "users"),
-                    where("isHost", "==", true)
-                );
+        if (!agent?.uid) return;
 
-                const querySnapshot = await getDocs(q);
-                const hostsList = querySnapshot.docs.map(doc => ({
-                    id: doc.id,
-                    ...doc.data()
-                }));
+        const q = query(
+            collection(db, "users"),
+            where("isHost", "==", true),
+            where("agencyId", "==", agent.uid)
+        );
 
-                setHosts(hostsList);
-            } catch (error) {
-                console.error("Error fetching hosts:", error);
-            } finally {
-                setLoading(false);
-            }
-        };
+        const unsubscribe = onSnapshot(q, (querySnapshot) => {
+            const hostsList = querySnapshot.docs.map(doc => ({
+                id: doc.id,
+                ...doc.data()
+            }));
+            setHosts(hostsList);
+            setLoading(false);
+        }, (error) => {
+            console.error("Error fetching hosts:", error);
+            setLoading(false);
+        });
 
-        fetchHosts();
-    }, []);
+        return () => unsubscribe();
+    }, [agent]);
+
+    const handleInvite = async (e) => {
+        e.preventDefault();
+        setInviteError('');
+        setInviteLoading(true);
+
+        try {
+            // Check if invitation already exists for this host
+            // For now, we directly create the invitation
+            // In a real scenario, we'd verify if the host exists and isn't already bound
+            await addDoc(collection(db, "invitations"), {
+                agencyId: agent.uid,
+                agencyName: agent.name || 'Your Agency',
+                hostId: inviteHostId, // The UID of the host in the mobile app
+                status: 'pending',
+                createdAt: serverTimestamp(),
+            });
+
+            setShowAddModal(false);
+            setInviteHostId('');
+            alert('Invitation sent successfully!');
+        } catch (error) {
+            console.error("Invitation Error:", error);
+            setInviteError('Failed to send invitation. Please check the Host ID.');
+        } finally {
+            setInviteLoading(false);
+        }
+    };
 
     // Filter hosts based on search
     const filteredHosts = hosts.filter(host =>
@@ -50,19 +81,26 @@ export default function HostsPage() {
                     <h1 className="text-3xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-white to-slate-400">
                         Host Management
                     </h1>
-                    <p className="text-slate-400 mt-1">Manage your agency's talent pool</p>
+                    <p className="text-slate-400 mt-1">Manage your agency's talent pool ({hosts.length} Active)</p>
                 </div>
 
-                {/* Search Bar */}
-                <div className="relative">
-                    <input
-                        type="text"
-                        placeholder="Search hosts..."
-                        value={searchTerm}
-                        onChange={(e) => setSearchTerm(e.target.value)}
-                        className="w-full md:w-64 bg-slate-900 border border-slate-700 text-slate-300 rounded-xl px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-pink-500/50 pl-10 transition-all"
-                    />
-                    <span className="absolute left-3 top-3 text-slate-500">🔍</span>
+                <div className="flex items-center gap-3">
+                    <div className="relative">
+                        <input
+                            type="text"
+                            placeholder="Search hosts..."
+                            value={searchTerm}
+                            onChange={(e) => setSearchTerm(e.target.value)}
+                            className="w-full md:w-64 bg-slate-900 border border-slate-700 text-slate-300 rounded-xl px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-pink-500/50 pl-10 transition-all"
+                        />
+                        <span className="absolute left-3 top-3 text-slate-500">🔍</span>
+                    </div>
+                    <button
+                        onClick={() => setShowAddModal(true)}
+                        className="bg-pink-600 hover:bg-pink-700 text-white px-4 py-2.5 rounded-xl font-bold transition-all shadow-lg shadow-pink-500/20"
+                    >
+                        Add Host +
+                    </button>
                 </div>
             </div>
 
@@ -91,7 +129,6 @@ export default function HostsPage() {
                                 {filteredHosts.length > 0 ? (
                                     filteredHosts.map((host) => (
                                         <tr key={host.id} className="hover:bg-white/5 transition-colors group">
-                                            {/* Host Profile */}
                                             <td className="p-5">
                                                 <div className="flex items-center space-x-3">
                                                     <div className="relative w-10 h-10">
@@ -114,7 +151,6 @@ export default function HostsPage() {
                                                 </div>
                                             </td>
 
-                                            {/* Status */}
                                             <td className="p-5 text-center">
                                                 {host.isLive ? (
                                                     <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-500/10 text-red-500 border border-red-500/20 animate-pulse">
@@ -131,26 +167,22 @@ export default function HostsPage() {
                                                 )}
                                             </td>
 
-                                            {/* Level */}
                                             <td className="p-5 text-center">
                                                 <div className="inline-block px-3 py-1 rounded-lg bg-slate-800 border border-slate-700 text-xs font-bold text-yellow-500">
                                                     ⭐ {host.level || 0}
                                                 </div>
                                             </td>
 
-                                            {/* Earnings */}
                                             <td className="p-5 text-right">
                                                 <span className="font-mono font-medium text-pink-300">
-                                                    {(host.diamonds || 0).toLocaleString()} 💎
+                                                    {formatCurrency(host.diamonds)} 💎
                                                 </span>
                                             </td>
 
-                                            {/* Followers */}
                                             <td className="p-5 text-right font-medium text-slate-300">
-                                                {(host.followers || 0).toLocaleString()}
+                                                {formatCurrency(host.followers)}
                                             </td>
 
-                                            {/* Actions */}
                                             <td className="p-5 text-right">
                                                 <button className="text-sm px-3 py-1.5 rounded-lg bg-pink-500/10 text-pink-500 hover:bg-pink-500 hover:text-white transition-all border border-pink-500/20">
                                                     Manage
@@ -161,12 +193,53 @@ export default function HostsPage() {
                                 ) : (
                                     <tr>
                                         <td colSpan="6" className="p-10 text-center text-slate-500">
-                                            No hosts found matching your search.
+                                            No hosts found bound to your agency.
                                         </td>
                                     </tr>
                                 )}
                             </tbody>
                         </table>
+                    </div>
+                </div>
+            )}
+
+            {/* Add Host Modal */}
+            {showAddModal && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+                    <div className="bg-slate-900 border border-slate-800 w-full max-w-md rounded-3xl p-8 shadow-2xl">
+                        <div className="flex justify-between items-center mb-6">
+                            <h2 className="text-2xl font-bold text-white">Invite New Host</h2>
+                            <button onClick={() => setShowAddModal(false)} className="text-slate-500 hover:text-white transition-colors">
+                                ╳
+                            </button>
+                        </div>
+
+                        <form onSubmit={handleInvite} className="space-y-6">
+                            <div>
+                                <label className="block text-sm font-medium text-slate-400 mb-2">Host User ID (UID)</label>
+                                <input
+                                    type="text"
+                                    value={inviteHostId}
+                                    onChange={(e) => setInviteHostId(e.target.value)}
+                                    placeholder="Enter Host's mobile app UID"
+                                    className="w-full bg-slate-950 border border-slate-800 text-white rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-pink-500/50 transition-all font-mono"
+                                    required
+                                />
+                                {inviteError && <p className="text-red-500 text-xs mt-2">{inviteError}</p>}
+                            </div>
+
+                            <div className="bg-slate-950/50 border border-slate-800/50 rounded-2xl p-4 text-xs text-slate-500 italic">
+                                Note: The host will receive a binding invitation in their mobile app to join "{agent.name}".
+                            </div>
+
+                            <button
+                                type="submit"
+                                disabled={inviteLoading}
+                                className="w-full bg-pink-600 hover:bg-pink-700 disabled:bg-slate-800 text-white font-bold py-3 rounded-xl transition-all shadow-lg shadow-pink-500/20"
+                            >
+                                {inviteLoading ? 'Sending...' : 'Send Invitation'}
+                            </button>
+                        </form>
                     </div>
                 </div>
             )}

@@ -1,9 +1,10 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { db } from '../../lib/firebase'
+import { collection, query, where, onSnapshot } from 'firebase/firestore'
+import { useAgency } from '../../lib/hooks'
 import StreamCard from '../components/StreamCard'
-
-// Mock data — replace with Firebase real-time listener later
 const MOCK_STREAMS = [
   {
     id: '1',
@@ -41,29 +42,71 @@ const MOCK_STREAMS = [
 ]
 
 export default function LiveStreamsPage() {
+  const { agency } = useAgency()
   const [streams, setStreams] = useState([])
+  const [hostsMap, setHostsMap] = useState({})
   const [filter, setFilter] = useState('live')
   const [selectedStream, setSelectedStream] = useState(null)
   const [loading, setLoading] = useState(true)
 
+  // 1. Fetch agency hosts to use as a lookup/filter
   useEffect(() => {
-    // Simulate Firebase real-time listener
+    if (!agency?.agencyId) return;
+
+    const hostsQuery = query(
+      collection(db, "users"),
+      where("isHost", "==", true),
+      where("agencyId", "==", agency.agencyId)
+    );
+
+    const unsubscribe = onSnapshot(hostsQuery, (snapshot) => {
+      const hMap = {};
+      snapshot.docs.forEach(doc => {
+        hMap[doc.id] = doc.data().name || 'No Name';
+      });
+      setHostsMap(hMap);
+    });
+
+    return () => unsubscribe();
+  }, [agency]);
+
+  // 2. Listen to real live streams
+  useEffect(() => {
+    if (Object.keys(hostsMap).length === 0) {
+      if (!loading) setLoading(false);
+      return;
+    }
+
     setLoading(true)
-    setTimeout(() => {
-      setStreams(MOCK_STREAMS)
-      setLoading(false)
-    }, 500)
-  }, [])
+    const streamsQuery = query(collection(db, "live_streams"));
+
+    const unsubscribe = onSnapshot(streamsQuery, (snapshot) => {
+      const list = snapshot.docs
+        .map(doc => ({
+          id: doc.id,
+          ...doc.data(),
+          hostName: hostsMap[doc.data().hostId] || 'Unknown Host',
+          duration: doc.data().startedAt ? Math.floor((Date.now() - doc.data().startedAt.toDate().getTime()) / 1000) : 0
+        }))
+        // Filter by agency hosts
+        .filter(s => hostsMap[s.hostId]);
+
+      setStreams(list);
+      setLoading(false);
+    });
+
+    return () => unsubscribe();
+  }, [hostsMap]);
 
   const filteredStreams = streams.filter(s => {
-    if (filter === 'all') return true
-    return s.status === filter
-  })
+    if (filter === 'all') return true;
+    return s.status === filter;
+  });
 
   const handleStopStream = (streamId) => {
     if (confirm('Are you sure you want to stop this stream?')) {
-      setStreams(streams.map(s => s.id === streamId ? { ...s, status: 'ended' } : s))
-      alert('Stream stopped successfully')
+      // In production, this would call a Cloud Function or update the stream status
+      alert('Functionality to stop streams via dashboard requires specific permissions.')
     }
   }
 
