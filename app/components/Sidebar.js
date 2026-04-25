@@ -47,7 +47,7 @@ export default function Sidebar() {
   const isAdminUser = agent?.isAdmin || agent?.email === 'admin@shemet.com';
 
   if (isAdminUser) {
-    // Standard Admin tools for the client
+    // Show All Admin tools (Standard + Super) to anyone with isAdmin flag
     menuStructure.push({
       label: 'Agency Management',
       children: [
@@ -56,27 +56,25 @@ export default function Sidebar() {
       ]
     });
 
-    // Restricted tools only for the Super Admin
-    if (isSuperAdmin) {
-      menuStructure.push({
-        label: 'Super Admin Tools',
-        children: [
-          { label: 'Pending Withdrawals', href: '/admin/withdrawals' },
-          { label: 'Diamond Purchase Requests', href: '/admin/purchase-requests' },
-          { label: 'Diamond Dealers Management', href: '/admin/dealers' },
-          { label: 'Diamond Trade Logs', href: '/admin/trade-logs' },
-          { label: 'All Users', href: '/users' },
-        ]
-      });
-      menuStructure.push({
-        label: 'Virtual Economy',
-        children: [
-          { label: 'Gifts Management', href: '/economy/gifts' },
-          { label: 'Top-Up Approvals', href: '/economy/topups' },
-          { label: 'Transactions Ledger', href: '/economy/transactions' },
-        ]
-      });
-    }
+    menuStructure.push({
+      label: 'Super Admin Tools',
+      children: [
+        { label: 'Pending Withdrawals', href: '/admin/withdrawals' },
+        { label: 'Diamond Purchase Requests', href: '/admin/purchase-requests' },
+        { label: 'Diamond Dealers Management', href: '/admin/dealers' },
+        { label: 'Diamond Trade Logs', href: '/admin/trade-logs' },
+        { label: 'All Users', href: '/users' },
+      ]
+    });
+
+    menuStructure.push({
+      label: 'Virtual Economy',
+      children: [
+        { label: 'Gifts Management', href: '/economy/gifts' },
+        { label: 'Top-Up Approvals', href: '/economy/topups' },
+        { label: 'Transactions Ledger', href: '/economy/transactions' },
+      ]
+    });
   }
 
   const renderMenu = (items, depth = 0) => {
@@ -214,7 +212,7 @@ export default function Sidebar() {
         {renderMenu(menuStructure)}
       </nav>
       <div style={{ padding: '20px', fontSize: '10px', color: '#94a3b8', opacity: 0.5 }}>
-        v1.0.4-live
+        v1.0.5-FINAL-FIX
       </div>
     </aside>
   )
