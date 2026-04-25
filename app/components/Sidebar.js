@@ -3,11 +3,11 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { useAgency } from '../../lib/hooks'
+import { useAgency } from '../context/AgencyContext'
 
 export default function Sidebar() {
   const pathname = usePathname();
-  const { agency: agent } = useAgency();
+  const { agent } = useAgency();
   const [expandedItems, setExpandedItems] = useState({});
 
   const toggleDropdown = (e, key) => {
@@ -23,6 +23,9 @@ export default function Sidebar() {
     { label: 'My Profile', href: '/my-profile' },
     { label: 'My Hostess', href: '/invitation/invitees/hosts' },
     { label: 'Sub Agents', href: '/invitation/invitees/agents' },
+    { label: 'Sell Diamonds', href: '/recharge' },
+    { label: 'Buy Diamonds', href: '/dashboard/buy-diamonds' },
+    { label: 'Diamond Trade', href: '/diamonds/trade' },
     {
       label: 'Reports',
       children: [
@@ -37,23 +40,43 @@ export default function Sidebar() {
         { label: 'Sub Agent Commission', href: '/invitation/rewards/extra' },
       ]
     },
-    {
-      label: 'Diamonds Seller',
-      children: [
-        { label: 'Dealers Management', href: '/diamonds/dealers' },
-      ]
-    },
     { label: 'My Wallet', href: '/coins-diamonds' },
   ];
 
-  if (agent?.isAdmin) {
+  const isSuperAdmin = agent?.email === 'hknskariyawasamnaveen@gmail.com';
+  const isAdminUser = agent?.isAdmin || agent?.email === 'admin@shemet.com';
+
+  if (isAdminUser) {
+    // Standard Admin tools for the client
     menuStructure.push({
-      label: 'Admin Tools',
+      label: 'Agency Management',
       children: [
-        { label: 'Pending Withdrawals', href: '/admin/withdrawals' },
         { label: 'Host Applications', href: '/admin/applications' },
+        { label: 'Notifications', href: '/admin/notifications' },
       ]
     });
+
+    // Restricted tools only for the Super Admin
+    if (isSuperAdmin) {
+      menuStructure.push({
+        label: 'Super Admin Tools',
+        children: [
+          { label: 'Pending Withdrawals', href: '/admin/withdrawals' },
+          { label: 'Diamond Purchase Requests', href: '/admin/purchase-requests' },
+          { label: 'Diamond Dealers Management', href: '/admin/dealers' },
+          { label: 'Diamond Trade Logs', href: '/admin/trade-logs' },
+          { label: 'All Users', href: '/users' },
+        ]
+      });
+      menuStructure.push({
+        label: 'Virtual Economy',
+        children: [
+          { label: 'Gifts Management', href: '/economy/gifts' },
+          { label: 'Top-Up Approvals', href: '/economy/topups' },
+          { label: 'Transactions Ledger', href: '/economy/transactions' },
+        ]
+      });
+    }
   }
 
   const renderMenu = (items, depth = 0) => {
@@ -65,7 +88,7 @@ export default function Sidebar() {
           const hasChildren = item.children && item.children.length > 0;
 
           return (
-            <li key={idx} style={{ marginBottom: depth === 0 ? 4 : 2 }}>
+            <li key={idx} style={{ marginBottom: depth === 0 ? 6 : 2 }}>
               {hasChildren ? (
                 // Parent Item (Toggle)
                 <div
@@ -74,20 +97,21 @@ export default function Sidebar() {
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'space-between',
-                    padding: `10px 16px 10px ${18 + (depth * 20)}px`,
+                    padding: `12px 16px 12px ${16 + (depth * 16)}px`,
                     cursor: 'pointer',
-                    color: depth === 0 ? '#475569' : '#64748b',
+                    color: isExpanded ? '#1e293b' : '#64748b',
                     fontSize: depth === 0 ? 14 : 13,
-                    fontWeight: depth === 0 ? 500 : 400,
-                    transition: 'all 0.2s',
-                    background: 'transparent',
-                    letterSpacing: depth === 0 ? '0.2px' : '0.1px',
+                    fontWeight: isExpanded ? 700 : 500,
+                    transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+                    background: isExpanded ? 'rgba(58, 38, 57, 0.04)' : 'transparent',
+                    borderRadius: '12px',
+                    margin: '0 8px'
                   }}
+                  className="hover-lift"
                 >
                   <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                     <span>{item.label}</span>
                   </div>
-                  {/* Custom Chevron SVG for a professional look */}
                   <svg
                     width="12"
                     height="12"
@@ -99,24 +123,23 @@ export default function Sidebar() {
                     strokeLinejoin="round"
                     style={{
                       transform: isExpanded ? 'rotate(180deg)' : 'none',
-                      transition: 'transform 0.3s ease',
-                      color: '#94a3b8'
+                      transition: 'transform 0.4s cubic-bezier(0.4, 0, 0.2, 1)',
+                      color: isExpanded ? '#ff1493' : '#94a3b8'
                     }}
                   >
                     <polyline points="6 9 12 15 18 9"></polyline>
                   </svg>
                 </div>
               ) : item.disabled ? (
-                // Disabled / Coming Soon item
                 <div style={{
                   display: 'flex',
                   alignItems: 'center',
-                  padding: `10px 16px 10px ${18 + (depth * 20)}px`,
+                  padding: `10px 16px 10px ${16 + (depth * 16)}px`,
                   color: '#94a3b8',
                   fontSize: 13,
                   fontStyle: 'italic',
                   cursor: 'default',
-                  letterSpacing: '0.1px',
+                  margin: '0 8px'
                 }}>
                   {item.label}
                 </div>
@@ -125,28 +148,44 @@ export default function Sidebar() {
                 <Link href={item.href || '#'} style={{
                   display: 'flex',
                   alignItems: 'center',
-                  padding: `10px 16px 10px ${18 + (depth * 20)}px`,
+                  padding: `12px 16px 12px ${16 + (depth * 16)}px`,
                   textDecoration: 'none',
-                  background: isActive ? '#f8f4f7' : 'transparent',
-                  borderLeft: depth === 0 ? (isActive ? '4px solid #3a2639' : '4px solid transparent') : '4px solid transparent',
-                  color: isActive ? '#3a2639' : (depth === 0 ? '#475569' : '#64748b'),
+                  background: isActive ? 'linear-gradient(90deg, #3a2639 0%, #4e344d 100%)' : 'transparent',
+                  color: isActive ? '#fff' : '#64748b',
                   fontSize: depth === 0 ? 14 : 13,
-                  fontWeight: isActive ? 600 : (depth === 0 ? 500 : 400),
-                  transition: 'background-color 0.2s, color 0.2s',
-                  letterSpacing: depth === 0 ? '0.2px' : '0.1px',
-                }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                    <span style={{ position: 'relative', display: 'inline-block' }}>
-                      {item.label}
-                    </span>
+                  fontWeight: isActive ? 700 : 500,
+                  transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+                  borderRadius: '12px',
+                  margin: '0 8px',
+                  boxShadow: isActive ? '0 8px 20px -8px rgba(58, 38, 57, 0.4)' : 'none'
+                }} className={!isActive ? "hover-lift" : ""}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10, position: 'relative', width: '100%' }}>
+                    <span>{item.label}</span>
+                    {isActive && (
+                      <div style={{ 
+                        marginLeft: 'auto', 
+                        width: '6px', 
+                        height: '6px', 
+                        borderRadius: '50%', 
+                        background: '#ff1493',
+                        boxShadow: '0 0 10px #ff1493'
+                      }} />
+                    )}
                   </div>
                 </Link>
               )}
 
               {/* Children Rendering */}
-              {hasChildren && isExpanded && (
-                <div style={{ background: 'transparent' }}>
-                  {renderMenu(item.children, depth + 1)}
+              {hasChildren && (
+                <div style={{ 
+                  maxHeight: isExpanded ? '500px' : '0',
+                  overflow: 'hidden',
+                  transition: 'max-height 0.5s cubic-bezier(0.4, 0, 0.2, 1)',
+                  opacity: isExpanded ? 1 : 0
+                }}>
+                  <div style={{ padding: '4px 0' }}>
+                    {renderMenu(item.children, depth + 1)}
+                  </div>
                 </div>
               )}
             </li>
@@ -157,30 +196,26 @@ export default function Sidebar() {
   }
 
   return (
-    <aside className="custom-scroll" style={{
-      width: 240,
-      background: '#fff',
-      borderRight: '1px solid #e5e7eb',
+    <aside style={{
+      width: 250,
+      background: 'rgba(255, 255, 255, 0.85)',
+      backdropFilter: 'blur(20px)',
+      WebkitBackdropFilter: 'blur(20px)',
+      borderRight: '1px solid rgba(0, 0, 0, 0.05)',
       height: 'calc(100vh - 60px)',
       overflowY: 'auto',
       position: 'fixed',
       top: 60,
       left: 0,
-      zIndex: 40
-    }}>
-      <nav style={{ padding: '12px 0' }}>
+      zIndex: 100,
+      padding: '20px 0'
+    }} className="no-scrollbar">
+      <nav>
         {renderMenu(menuStructure)}
       </nav>
-      <style dangerouslySetInnerHTML={{
-        __html: `
-        .custom-scroll::-webkit-scrollbar {
-          width: 4px;
-        }
-        .custom-scroll::-webkit-scrollbar-thumb {
-          background-color: #e5e7eb;
-          border-radius: 4px;
-        }
-      `}} />
+      <div style={{ padding: '20px', fontSize: '10px', color: '#94a3b8', opacity: 0.5 }}>
+        v1.0.4-live
+      </div>
     </aside>
   )
 }
