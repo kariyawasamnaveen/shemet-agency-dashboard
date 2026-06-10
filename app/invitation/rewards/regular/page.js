@@ -13,26 +13,37 @@ export default function RegularRewardsPage() {
     const brandPlum = '#3a2639'
 
     useEffect(() => {
-        if (!agency?.agencyId) return;
+        if (!agency) return;
+
+        // If user is logged in but doesn't have an agencyId (unlikely after repair), 
+        // we should still stop the loading spinner
+        if (!agency.agencyId) {
+            console.warn("User has no agencyId, cannot fetch rewards.");
+            setLoading(false);
+            return;
+        }
+
+        console.log("Fetching host rewards for agency:", agency.agencyId);
 
         // Fetch hosts for this agency to calculate rewards
         const q = query(
             collection(db, "users"),
-            where("agencyId", "==", agency.agencyId),
-            where("isHost", "==", true)
+            where("isHost", "==", true),
+            where("agencyId", "==", agency.agencyId)
         );
 
         const unsubscribe = onSnapshot(q, (snapshot) => {
+            console.log(`Found ${snapshot.size} hosts for rewards.`);
             const hostRewards = snapshot.docs.map(doc => {
                 const data = doc.data();
                 const totalDiamonds = (data.diamonds || 0) + (data.points || 0);
-                // 60/40 rule: 60% to host, the rest is split between app and agency
-                // For this display, we show the host's total contribution
+                
                 return {
                     id: doc.id,
+                    shemetId: data.shemetId || doc.id,
                     name: data.name || 'Unknown',
                     diamonds: totalDiamonds,
-                    withdrawableUSD: (totalDiamonds * 0.6) / 1000, // Example conversion
+                    withdrawableUSD: (totalDiamonds * 0.6) / 1000, 
                     lastActive: data.lastSeen?.toDate()?.toLocaleDateString() || '-',
                 };
             });
@@ -43,7 +54,15 @@ export default function RegularRewardsPage() {
             setLoading(false);
         });
 
-        return () => unsubscribe();
+        // Safety timeout to prevent infinite loading
+        const timer = setTimeout(() => {
+            if (loading) setLoading(false);
+        }, 8000);
+
+        return () => {
+            unsubscribe();
+            clearTimeout(timer);
+        };
     }, [agency]);
 
     return (

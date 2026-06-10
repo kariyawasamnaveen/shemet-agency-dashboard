@@ -63,25 +63,59 @@ export default function HostsListPage() {
         setRequestSent(true)
 
         try {
-            // Check if user exists in Shemet app
-            const userQuery = query(collection(db, "users"), where("uid", "==", addHostForm.id));
-            const userSnap = await getDocs(userQuery);
-
-            if (userSnap.empty) {
-                // Try searching by custom shemetId if that's what's used
-                const idQuery = query(collection(db, "users"), where("shemetId", "==", addHostForm.id));
-                const idSnap = await getDocs(idQuery);
-
-                if (idSnap.empty) {
-                    alert("User not found! Please check the Shemet ID.");
-                    setRequestSent(false);
-                    return;
+            let targetUser = null;
+            
+            // Search by Shemet ID (Numeric) or Contact (Phone/Email)
+            const usersRef = collection(db, "users");
+            
+            // 1. Try Numeric ID
+            const q1 = query(usersRef, where("id", "==", addHostForm.id));
+            const snap1 = await getDocs(q1);
+            
+            if (!snap1.empty) {
+                targetUser = { id: snap1.docs[0].id, ...snap1.docs[0].data() };
+            } else {
+                // 2. Try Phone/Email if provided in contact field
+                const q2 = query(usersRef, where("phoneNumber", "==", addHostForm.contact));
+                const snap2 = await getDocs(q2);
+                if (!snap2.empty) {
+                    targetUser = { id: snap2.docs[0].id, ...snap2.docs[0].data() };
+                } else {
+                    const q3 = query(usersRef, where("email", "==", addHostForm.contact));
+                    const snap3 = await getDocs(q3);
+                    if (!snap3.empty) {
+                        targetUser = { id: snap3.docs[0].id, ...snap3.docs[0].data() };
+                    }
                 }
+            }
+
+            if (!targetUser) {
+                alert("User not found! Please check the Shemet ID and Phone/Gmail.");
+                setRequestSent(false);
+                return;
+            }
+
+            // Gender Check: Only females can be invited as hosts
+            if (targetUser.gender?.toLowerCase() === 'male') {
+                alert("Only female accounts can be invited as hosts. Male accounts are not eligible.");
+                setRequestSent(false);
+                return;
+            }
+
+            // Check if already bound
+            if (targetUser.agencyId) {
+                alert("This host is already bound to an agency.");
+                setRequestSent(false);
+                return;
             }
 
             // Create host invitation
             await addDoc(collection(db, "host_invitations"), {
-                targetUserId: addHostForm.id,
+                targetUserId: targetUser.uid || targetUser.id,
+                targetNumericId: targetUser.id || '-',
+                targetUserName: targetUser.name || 'User',
+                targetUserPhone: targetUser.phoneNumber || '-',
+                targetUserEmail: targetUser.email || '-',
                 agencyId: agency.agencyId,
                 agencyName: agency.name || 'Your Agency',
                 agencyPhoto: agency.photoURL || '',
@@ -95,7 +129,7 @@ export default function HostsListPage() {
                 setShowAddHostModal(false)
                 setRequestSent(false)
                 setAddHostForm({ id: '', contact: '' })
-                alert('Invitation sent! Host will see it in their app notifications.')
+                alert('Invitation sent successfully! The host can accept it in their application notifications.')
             }, 1000)
         } catch (error) {
             console.error("Error adding host:", error);
@@ -348,7 +382,7 @@ export default function HostsListPage() {
                                     <tr style={{ background: '#fafafa', borderBottom: '1px solid #f0f0f0' }}>
                                         {activeTab === 'agreed' ? (
                                             <>
-                                                <th style={{ padding: '16px', fontSize: 12, fontWeight: 600, color: '#666' }}>ID</th>
+                                                <th style={{ padding: '16px', fontSize: 12, fontWeight: 600, color: '#666' }}>Numeric ID</th>
                                                 <th style={{ padding: '16px', fontSize: 12, fontWeight: 600, color: '#666' }}>NickName</th>
                                                 <th style={{ padding: '16px', fontSize: 12, fontWeight: 600, color: '#666' }}>Gender</th>
                                                 <th style={{ padding: '16px', fontSize: 12, fontWeight: 600, color: '#666' }}>Phone</th>
@@ -390,7 +424,7 @@ export default function HostsListPage() {
                                             <tr key={row.id} style={{ borderBottom: '1px solid #f5f5f5' }}>
                                                 {activeTab === 'agreed' ? (
                                                     <>
-                                                        <td style={{ padding: '16px', fontSize: 13, color: brandPlumLight, fontWeight: 500 }}>{row.uid || row.id}</td>
+                                                        <td style={{ padding: '16px', fontSize: 13, color: brandPlumLight, fontWeight: 700 }}>{row.id || '-'}</td>
                                                         <td style={{ padding: '16px', fontSize: 13, color: '#333' }}>{row.nickname}</td>
                                                         <td style={{ padding: '16px', fontSize: 13, color: '#666' }}>{row.gender}</td>
                                                         <td style={{ padding: '16px', fontSize: 13, color: '#666' }}>{row.phone}</td>

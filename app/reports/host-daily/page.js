@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { useAgency } from '../../../lib/hooks'
-import { db } from '../../../lib/firebase'
+import { db } from '@/lib/firebase'
 import { collection, query, where, getDocs, Timestamp, onSnapshot } from 'firebase/firestore'
 
 export default function HostDailyReportPage() {
@@ -161,18 +161,43 @@ export default function HostDailyReportPage() {
                         <input
                             type="text"
                             placeholder="Host ID"
+                            value={searchTerm}
+                            onChange={(e) => setSearchTerm(e.target.value)}
                             style={{ padding: '8px 12px', border: '1px solid #ddd', borderRadius: 4, fontSize: 13, width: 150 }}
                         />
-                        <button style={{
-                            background: brandPlum,
-                            color: '#fff',
-                            border: 'none',
-                            padding: '8px 24px',
-                            borderRadius: 4,
-                            fontSize: 14,
-                            fontWeight: 600,
-                            cursor: 'pointer'
-                        }}>Search</button>
+                        <button
+                            onClick={() => {
+                                setHosts([...hosts]); // Trigger re-effect for stats
+                                fetchDailyStats();
+                            }}
+                            style={{
+                                background: '#fff',
+                                color: brandPlum,
+                                border: `1px solid ${brandPlum}`,
+                                padding: '8px 16px',
+                                borderRadius: 4,
+                                fontSize: 13,
+                                fontWeight: 600,
+                                cursor: 'pointer'
+                            }}
+                        >
+                            Refresh Data
+                        </button>
+                        <button
+                            onClick={fetchDailyStats}
+                            style={{
+                                background: brandPlum,
+                                color: '#fff',
+                                border: 'none',
+                                padding: '8px 24px',
+                                borderRadius: 4,
+                                fontSize: 14,
+                                fontWeight: 600,
+                                cursor: 'pointer'
+                            }}
+                        >
+                            Search
+                        </button>
                     </div>
 
                     {/* Table */}

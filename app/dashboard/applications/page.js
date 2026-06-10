@@ -1,6 +1,6 @@
 'use client';
 import { useState, useEffect } from 'react';
-import { db } from '../../../lib/firebase';
+import { db } from '@/lib/firebase';
 import { collection, query, where, getDocs, doc, writeBatch, updateDoc } from 'firebase/firestore';
 
 export default function ApplicationsPage() {

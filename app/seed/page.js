@@ -1,6 +1,6 @@
 'use client';
 import { useState } from 'react';
-import { db } from '../../lib/firebase';
+import { db } from '@/lib/firebase';
 import { collection, addDoc, Timestamp, doc, setDoc } from 'firebase/firestore';
 
 export default function SeedPage() {

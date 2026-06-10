@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { useAgency } from '../../../lib/hooks'
-import { db } from '../../../lib/firebase'
+import { db } from '@/lib/firebase'
 import { collection, query, where, getDocs, Timestamp, onSnapshot } from 'firebase/firestore'
 
 export default function AgentDailyReportPage() {
@@ -11,6 +11,7 @@ export default function AgentDailyReportPage() {
     const [agentStats, setAgentStats] = useState({})
     const [loading, setLoading] = useState(true)
     const [searchDate, setSearchDate] = useState(new Date().toISOString().split('T')[0])
+    const [searchTerm, setSearchTerm] = useState('')
 
     const brandPlum = '#3a2639'
 
@@ -137,14 +138,16 @@ export default function AgentDailyReportPage() {
     }, [searchDate, subAgents]);
 
     // Prepare table data
-    const agencyData = subAgents.map((sa, i) => ({
-        rank: i + 1,
-        name: sa.name,
-        date: searchDate,
-        activeHosts: agentStats[sa.id]?.activeHosts || 0,
-        totalRevenue: `$${((agentStats[sa.id]?.revenue || 0) / 100).toFixed(2)}`,
-        commission: `$${((agentStats[sa.id]?.commission || 0) / 100).toFixed(2)}`
-    }));
+    const agencyData = subAgents
+        .filter(sa => (sa.name || '').toLowerCase().includes(searchTerm.toLowerCase()) || (sa.agencyId || '').includes(searchTerm))
+        .map((sa, i) => ({
+            rank: i + 1,
+            name: sa.name,
+            date: searchDate,
+            activeHosts: agentStats[sa.id]?.activeHosts || 0,
+            totalRevenue: `$${((agentStats[sa.id]?.revenue || 0) / 100).toFixed(2)}`,
+            commission: `$${((agentStats[sa.id]?.commission || 0) / 100).toFixed(2)}`
+        }));
 
     const totalRevenue = Object.values(agentStats).reduce((sum, s) => sum + s.revenue, 0);
     const activeAgencies = subAgents.length;
@@ -167,6 +170,28 @@ export default function AgentDailyReportPage() {
                             onChange={(e) => setSearchDate(e.target.value)}
                             style={{ padding: '8px 12px', border: '1px solid #e2e8f0', borderRadius: 6, fontSize: 13, background: '#f8fafc', color: brandPlum, fontWeight: 600 }}
                         />
+                        <input
+                            type="text"
+                            placeholder="Agency Name or ID"
+                            value={searchTerm}
+                            onChange={(e) => setSearchTerm(e.target.value)}
+                            style={{ padding: '8px 12px', border: '1px solid #e2e8f0', borderRadius: 6, fontSize: 13, width: 200 }}
+                        />
+                        <button
+                            onClick={fetchAgentPerformance}
+                            style={{
+                                background: '#fff',
+                                color: brandPlum,
+                                border: `1px solid ${brandPlum}`,
+                                padding: '8px 16px',
+                                borderRadius: 6,
+                                fontSize: 13,
+                                fontWeight: 600,
+                                cursor: 'pointer'
+                            }}
+                        >
+                            Refresh Data
+                        </button>
                     </div>
 
                     {/* Summary Stats */}

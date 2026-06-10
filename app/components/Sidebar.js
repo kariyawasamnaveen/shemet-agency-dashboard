@@ -26,20 +26,13 @@ export default function Sidebar() {
     { label: 'Sell Diamonds', href: '/recharge' },
     { label: 'Buy Diamonds', href: '/dashboard/buy-diamonds' },
     { label: 'Diamond Trade', href: '/diamonds/trade' },
-    {
-      label: 'Reports',
-      children: [
-        { label: 'Host Daily Report', href: '/reports/host-daily' },
-        { label: 'Agent Daily Report', href: '/reports/agent-daily' },
-      ]
-    },
+    { label: 'Host Daily Report', href: '/reports/host-daily' },
+    { label: 'Agent Daily Report', href: '/reports/agent-daily' },
     {
       label: 'Weekly Settlement',
-      children: [
-        { label: 'My Commission', href: '/invitation/rewards/regular' },
-        { label: 'Sub Agent Commission', href: '/invitation/rewards/extra' },
-      ]
+      href: '/dashboard/settlement'
     },
+    { label: 'Sub Agent Commission', href: '/invitation/rewards/extra' },
     { label: 'My Wallet', href: '/coins-diamonds' },
   ];
 

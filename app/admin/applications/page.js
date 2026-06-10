@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { useAgency } from '../../../lib/hooks'
-import { db } from '../../../lib/firebase'
+import { db } from '@/lib/firebase'
 import {
     collection,
     query,
@@ -10,6 +10,7 @@ import {
     onSnapshot,
     orderBy,
     doc,
+    getDoc,
     updateDoc,
     writeBatch,
     serverTimestamp
@@ -23,15 +24,17 @@ export default function HostApplicationsPage() {
     const [loading, setLoading] = useState(true)
     const [processingId, setProcessingId] = useState(null)
 
-    // Redirect if not admin
+    const isSuperAdmin = agent?.email === 'hknskariyawasamnaveen@gmail.com';
+
+    // Redirect if not super admin
     useEffect(() => {
-        if (!authLoading && !agent?.isAdmin) {
+        if (!authLoading && !isSuperAdmin) {
             router.push('/')
         }
-    }, [agent, authLoading, router])
+    }, [isSuperAdmin, authLoading, router])
 
     useEffect(() => {
-        if (!agent?.isAdmin) return
+        if (!isSuperAdmin) return
 
         // Fetch all pending host applications
         const q = query(
@@ -71,8 +74,20 @@ export default function HostApplicationsPage() {
                 processedBy: agent.uid
             })
 
-            // 2. Update user profile
+            // 2. Fetch user profile to verify gender
             const userRef = doc(db, "users", app.userId)
+            const userSnap = await getDoc(userRef)
+
+            if (userSnap.exists()) {
+                const userData = userSnap.data()
+                if (userData.gender && userData.gender.toLowerCase() !== 'female') {
+                    alert(`Rejected: ${app.userName} is marked as '${userData.gender}'. Host accounts must be Female only.`)
+                    setProcessingId(null)
+                    return
+                }
+            }
+
+            // 3. Update user profile
             batch.update(userRef, {
                 isHost: true,
                 agencyId: app.agencyId, // Bind to the agency that invited them

@@ -1,6 +1,6 @@
 'use client';
 import { useState, useEffect } from 'react';
-import { db } from '../../../lib/firebase';
+import { db } from '@/lib/firebase';
 import { collection, query, where, onSnapshot, orderBy, limit } from 'firebase/firestore';
 
 export default function EarningsPage() {
@@ -27,27 +27,57 @@ export default function EarningsPage() {
 
     const maxVal = Math.max(...weeklyData.map(d => d.value)) || 100; // Avoid divide by zero
 
+    const { agent, loading: authLoading } = useAgency();
+    const router = useRouter();
+    const isSuperAdmin = agent?.email === 'hknskariyawasamnaveen@gmail.com';
+
     useEffect(() => {
-        // 1. Listen to Top Performers & Wallet Balance
-        const qHosts = query(
-            collection(db, "users"),
-            where("isHost", "==", true),
-            orderBy("diamonds", "desc"),
-            limit(5)
-        );
+        if (!authLoading && !agent) {
+            router.push('/login');
+        }
+    }, [agent, authLoading]);
+
+    useEffect(() => {
+        if (!agent) return;
+
+        // 1. Listen to Top Performers
+        let qHosts;
+        if (isSuperAdmin) {
+            qHosts = query(
+                collection(db, "users"),
+                where("isHost", "==", true),
+                orderBy("diamonds", "desc"),
+                limit(5)
+            );
+        } else {
+            qHosts = query(
+                collection(db, "users"),
+                where("isHost", "==", true),
+                where("agencyId", "==", agent.agencyId || 'none'),
+                orderBy("diamonds", "desc"),
+                limit(5)
+            );
+        }
 
         const unsubscribeHosts = onSnapshot(qHosts, (snapshot) => {
             const hosts = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
             setTopHosts(hosts);
             setLoading(false);
-
-            // Calculate Available Balance (Sum of all host diamonds)
-            const totalDiamonds = hosts.reduce((sum, host) => sum + (host.diamonds || 0), 0);
-            setStats(prev => ({ ...prev, availableBalance: totalDiamonds }));
+            
+            if (!isSuperAdmin) {
+                const totalDiamonds = hosts.reduce((sum, host) => sum + (host.diamonds || 0), 0);
+                setStats(prev => ({ ...prev, availableBalance: totalDiamonds }));
+            }
         });
 
-        // 2. Listen to Withdrawals (Total Paid & Pending)
-        const qWithdrawals = query(collection(db, "withdrawals"));
+        // 2. Listen to Withdrawals (Scoped if not admin)
+        let qWithdrawals;
+        if (isSuperAdmin) {
+            qWithdrawals = query(collection(db, "withdrawals"));
+        } else {
+            qWithdrawals = query(collection(db, "withdrawals"), where("agencyId", "==", agent.agencyId || 'none'));
+        }
+
         const unsubscribeWithdrawals = onSnapshot(qWithdrawals, (snapshot) => {
             let paid = 0;
             let pending = 0;
@@ -61,20 +91,29 @@ export default function EarningsPage() {
             setStats(prev => ({ ...prev, totalPaid: paid, pendingWithdrawals: pending }));
         });
 
-        // 3. Listen to Recent Transactions (Weekly Chart)
-        // Get start of the week (Monday)
+        // 3. Listen to Recent Transactions (Weekly Chart) - Global for Admin, Scoped for Agent
         const today = new Date();
-        const dayOfWeek = today.getDay(); // 0 (Sun) - 6 (Sat)
-        const diffToMon = dayOfWeek === 0 ? 6 : dayOfWeek - 1; // Adjust to make Mon=0
+        const dayOfWeek = today.getDay();
+        const diffToMon = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
         const startOfWeek = new Date(today);
         startOfWeek.setDate(today.getDate() - diffToMon);
         startOfWeek.setHours(0, 0, 0, 0);
 
-        const qTransactions = query(
-            collection(db, "gift_transactions"),
-            where("timestamp", ">=", startOfWeek),
-            orderBy("timestamp", "asc")
-        );
+        let qTransactions;
+        if (isSuperAdmin) {
+            qTransactions = query(
+                collection(db, "gift_transactions"),
+                where("timestamp", ">=", startOfWeek),
+                orderBy("timestamp", "asc")
+            );
+        } else {
+            qTransactions = query(
+                collection(db, "gift_transactions"),
+                where("timestamp", ">=", startOfWeek),
+                where("agencyId", "==", agent.agencyId || 'none'),
+                orderBy("timestamp", "asc")
+            );
+        }
 
         const unsubscribeTransactions = onSnapshot(qTransactions, (snapshot) => {
             const dailyTotals = { Mon: 0, Tue: 0, Wed: 0, Thu: 0, Fri: 0, Sat: 0, Sun: 0 };
@@ -85,9 +124,8 @@ export default function EarningsPage() {
                 const date = data.timestamp?.toDate ? data.timestamp.toDate() : new Date(data.timestamp);
                 const dayName = daysMap[date.getDay()];
 
-                // Safety check for existing day key
                 if (dailyTotals[dayName] !== undefined) {
-                    dailyTotals[dayName] += (data.diamondAmount || 0);
+                    dailyTotals[dayName] += (data.diamondAmount || data.diamondsDeducted || 0);
                 }
             });
 
@@ -104,12 +142,19 @@ export default function EarningsPage() {
             setWeeklyData(chartData);
         });
 
+        // 4. Special Admin Stat: Sum of ALL diamonds
+        if (isSuperAdmin) {
+            // In a real app, this should be a counter or cloud function result.
+            // For now, we use a simple listener for stats or similar.
+            // setStats(prev => ({ ...prev, availableBalance: ... }));
+        }
+
         return () => {
             unsubscribeHosts();
             unsubscribeWithdrawals();
             unsubscribeTransactions();
         };
-    }, []);
+    }, [agent, authLoading, isSuperAdmin]);
 
     return (
         <div className="space-y-8">

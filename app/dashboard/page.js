@@ -1,6 +1,6 @@
 'use client';
 import { useState, useEffect } from 'react';
-import { db } from '../../lib/firebase';
+import { db } from '@/lib/firebase';
 import { collection, query, where, onSnapshot } from 'firebase/firestore';
 import Link from 'next/link';
 import { useAgency } from '../context/AgencyContext';
@@ -18,13 +18,13 @@ export default function Dashboard() {
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
-        if (!agent?.uid) return;
+        if (!agent?.agencyId) return;
 
         // 1. Listen to Hosts Data (filtered by agencyId)
         const hostsQuery = query(
             collection(db, 'users'),
             where('isHost', '==', true),
-            where('agencyId', '==', agent.uid)
+            where('agencyId', '==', agent.agencyId)
         );
 
         const unsubscribeHosts = onSnapshot(hostsQuery, (snapshot) => {
@@ -56,12 +56,11 @@ export default function Dashboard() {
             setLoading(false);
         });
 
-        // 2. Listen to Pending Applications (filtered by agencyId if applicable, else global/agent specific)
-        // Note: Assuming applications have an agencyId or are related to the agent
+        // 2. Listen to Pending Applications (filtered by agencyId)
         const appsQuery = query(
             collection(db, 'host_applications'),
             where('status', '==', 'pending'),
-            where('agencyId', '==', agent.uid)
+            where('agencyId', '==', agent.agencyId)
         );
 
         const unsubscribeApps = onSnapshot(appsQuery, (snapshot) => {

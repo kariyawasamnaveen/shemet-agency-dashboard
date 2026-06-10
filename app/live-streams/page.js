@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { db } from '../../lib/firebase'
+import { db } from '@/lib/firebase'
 import { collection, query, where, onSnapshot } from 'firebase/firestore'
 import { useAgency } from '../../lib/hooks'
 import StreamCard from '../components/StreamCard'

@@ -1,6 +1,6 @@
 'use client'
 
-import { db } from '../../lib/firebase'
+import { db } from '@/lib/firebase'
 import { collection, query, where, onSnapshot } from 'firebase/firestore'
 import { useAgency } from '../../lib/hooks'
 const MOCK_ROOMS = [

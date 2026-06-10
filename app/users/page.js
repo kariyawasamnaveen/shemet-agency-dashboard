@@ -1,21 +1,17 @@
 'use client'
-
 import { useState, useEffect } from 'react'
+import { useRouter } from 'next/navigation'
+import { useAgency } from '../context/AgencyContext'
 import UserFilters from '../components/UserFilters'
 import UserTable from '../components/UserTable'
-
-// Mock data — replace with Firebase later
-const MOCK_USERS = [
-  { id: '1', name: 'Naveen', email: 'nav@example.com', type: 'host', status: 'active', createdAt: '2026-01-15' },
-  { id: '2', name: 'Priya', email: 'pri@example.com', type: 'user', status: 'active', createdAt: '2026-01-20' },
-  { id: '3', name: 'Ravi', email: 'rav@example.com', type: 'user', status: 'banned', createdAt: '2025-12-01' },
-  { id: '4', name: 'Anjali', email: 'anj@example.com', type: 'host', status: 'active', createdAt: '2026-02-01' },
-  { id: '5', name: 'Amit', email: 'amit@example.com', type: 'user', status: 'suspended', createdAt: '2026-02-10' },
-]
 
 const ITEMS_PER_PAGE = 10
 
 export default function UsersPage() {
+  const { agent, loading: authLoading } = useAgency()
+  const router = useRouter()
+  const isSuperAdmin = agent?.email === 'hknskariyawasamnaveen@gmail.com'
+
   const [users, setUsers] = useState([])
   const [filteredUsers, setFilteredUsers] = useState([])
   const [filters, setFilters] = useState({ status: 'all', type: 'all', search: '' })
@@ -23,24 +19,53 @@ export default function UsersPage() {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    // Simulate Firebase fetch
-    setLoading(true)
-    setTimeout(() => {
-      setUsers(MOCK_USERS)
-      setLoading(false)
-    }, 500)
-  }, [])
+    if (!authLoading && !isSuperAdmin) {
+      router.push('/')
+    }
+  }, [isSuperAdmin, authLoading, router])
 
   useEffect(() => {
-    // Apply filters
+    if (!isSuperAdmin) return
+
+    // Real Firebase fetch
+    const { collection, query, onSnapshot, orderBy } = require('firebase/firestore')
+    const { db } = require('@/lib/firebase')
+
+    setLoading(true)
+    const q = query(collection(db, 'users'), orderBy('createdAt', 'desc'))
+    
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const userList = snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      }))
+      setUsers(userList)
+      setLoading(false)
+    }, (error) => {
+      console.error("Firebase Auth/Firestore Error:", error)
+      setLoading(false)
+    })
+
+    return () => unsubscribe()
+  }, [isSuperAdmin])
+
+  useEffect(() => {
+    // Apply filters locally on the fetched list for speed
     let filtered = users.filter(user => {
-      const statusMatch = filters.status === 'all' || user.status === filters.status
-      const typeMatch = filters.type === 'all' || user.type === filters.type
-      const searchMatch = !filters.search || user.name.toLowerCase().includes(filters.search.toLowerCase()) || user.email.toLowerCase().includes(filters.search.toLowerCase())
-      return statusMatch && typeMatch && searchMatch
+      const statusParam = filters.status === 'all' || (user.status || 'active') === filters.status
+      const typeParam = filters.type === 'all' || 
+                       (filters.type === 'host' ? user.isHost === true : 
+                        filters.type === 'agent' ? user.isAgent === true : true)
+      
+      const searchParam = !filters.search || 
+                        (user.name?.toLowerCase().includes(filters.search.toLowerCase())) || 
+                        (user.email?.toLowerCase().includes(filters.search.toLowerCase())) ||
+                        (user.id?.toLowerCase().includes(filters.search.toLowerCase()))
+      
+      return statusParam && typeParam && searchParam
     })
     setFilteredUsers(filtered)
-    setPage(1) // Reset to page 1 on filter change
+    setPage(1)
   }, [filters, users])
 
   const paginatedUsers = filteredUsers.slice((page - 1) * ITEMS_PER_PAGE, page * ITEMS_PER_PAGE)

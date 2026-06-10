@@ -1,6 +1,6 @@
 'use client';
 import { useState, useEffect } from 'react';
-import { db } from '../../../lib/firebase';
+import { db } from '@/lib/firebase';
 import { collection, query, where, onSnapshot, addDoc, serverTimestamp } from 'firebase/firestore';
 import { useAgency } from '../../context/AgencyContext';
 import { formatCurrency } from '../../../lib/utils/commission';
@@ -15,14 +15,27 @@ export default function HostsPage() {
     const [inviteLoading, setInviteLoading] = useState(false);
     const [inviteError, setInviteError] = useState('');
 
-    useEffect(() => {
-        if (!agent?.uid) return;
+    const isSuperAdmin = agent?.email === 'hknskariyawasamnaveen@gmail.com';
 
-        const q = query(
-            collection(db, "users"),
-            where("isHost", "==", true),
-            where("agencyId", "==", agent.uid)
-        );
+    useEffect(() => {
+        if (!agent) return;
+
+        let q;
+        if (isSuperAdmin) {
+            // Super Admin sees all hosts
+            q = query(
+                collection(db, "users"),
+                where("isHost", "==", true)
+            );
+        } else {
+            // Agent sees only their hosts
+            if (!agent.agencyId) return;
+            q = query(
+                collection(db, "users"),
+                where("isHost", "==", true),
+                where("agencyId", "==", agent.agencyId)
+            );
+        }
 
         const unsubscribe = onSnapshot(q, (querySnapshot) => {
             const hostsList = querySnapshot.docs.map(doc => ({
@@ -45,23 +58,60 @@ export default function HostsPage() {
         setInviteLoading(true);
 
         try {
-            // Check if invitation already exists for this host
-            // For now, we directly create the invitation
-            // In a real scenario, we'd verify if the host exists and isn't already bound
-            await addDoc(collection(db, "invitations"), {
-                agencyId: agent.uid,
-                agencyName: agent.name || 'Your Agency',
-                hostId: inviteHostId, // The UID of the host in the mobile app
-                status: 'pending',
-                createdAt: serverTimestamp(),
+            // 1. Search for the host by their Numeric ID (id field)
+            const usersRef = collection(db, "users");
+            const q = query(usersRef, where("id", "==", inviteHostId));
+            const querySnapshot = await getDocs(q);
+
+            if (querySnapshot.empty) {
+                setInviteError('No user found with this ID. Please check the 8-digit Numeric UID.');
+                setInviteLoading(false);
+                return;
+            }
+
+            const hostDoc = querySnapshot.docs[0];
+            const hostData = hostDoc.data();
+            const hostUid = hostDoc.id;
+
+            // 2. Security Check: Only females (Auto-Hosts) or people with isHost status can be bound
+            if (!hostData.isHost && hostData.gender?.toLowerCase() !== 'female') {
+                setInviteError('This user is not eligible to be a Host.');
+                setInviteLoading(false);
+                return;
+            }
+
+            // 3. Prevent binding if already bound to an agency
+            if (hostData.agencyId) {
+                setInviteError(`This host is already bound to another agency (ID: ${hostData.agencyId}).`);
+                setInviteLoading(false);
+                return;
+            }
+
+            // 4. Perform Direct Binding (as requested: "auto verify style")
+            const { updateDoc, doc } = await import('firebase/firestore');
+            await updateDoc(doc(db, "users", hostUid), {
+                agencyId: agent.agencyId,
+                agencyName: agent.agencyName || agent.name || 'Your Agency',
+                boundAt: serverTimestamp(),
+                hostStatus: 'active'
+            });
+
+            // 5. Log the binding for audit
+            await addDoc(collection(db, "host_invitations"), {
+                hostId: hostUid,
+                hostNumericId: inviteHostId,
+                agencyId: agent.agencyId,
+                status: 'accepted', // Auto-accepted binding
+                type: 'direct_bind',
+                createdAt: serverTimestamp()
             });
 
             setShowAddModal(false);
             setInviteHostId('');
-            alert('Invitation sent successfully!');
+            alert(`Host "${hostData.name || inviteHostId}" bound successfully!`);
         } catch (error) {
-            console.error("Invitation Error:", error);
-            setInviteError('Failed to send invitation. Please check the Host ID.');
+            console.error("Binding Error:", error);
+            setInviteError('Failed to bind host. Please try again.');
         } finally {
             setInviteLoading(false);
         }

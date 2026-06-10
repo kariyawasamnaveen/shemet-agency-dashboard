@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { useAgency } from '../lib/hooks'
-import { db } from '../lib/firebase'
+import { db } from '@/lib/firebase'
 import { collection, query, where, onSnapshot, getDocs, Timestamp, orderBy, limit } from 'firebase/firestore'
 import { useRouter } from 'next/navigation'
 import {
@@ -315,24 +315,36 @@ export default function HomePage() {
   const COLORS = ['#3a2639', '#7d537b']
 
   return (
-    <main style={{ background: '#f0f2f5', minHeight: '100vh', padding: 0 }}>
-      <div style={{ padding: '16px 16px 0 16px' }}>
-        <h1 style={{ fontSize: 20, fontWeight: 600, color: '#111', margin: '0 0 16px 0' }}>Home</h1>
+    <main style={{ background: '#f8fafc', minHeight: '100vh', padding: 0 }} className="animate-fade-in">
+      <div style={{ padding: '24px 24px 0 24px' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
+          <div>
+             <h1 style={{ fontSize: 24, fontWeight: 800, color: '#1e293b', margin: 0, letterSpacing: '-0.02em' }}>Dashboard</h1>
+             <p style={{ fontSize: 13, color: '#64748b', margin: 0, fontWeight: 500 }}>Welcome back to Shemet Agent Hub</p>
+          </div>
+          <div style={{ display: 'flex', gap: 12 }}>
+             <div style={{ background: '#fff', borderRadius: 12, padding: '8px 16px', border: '1px solid #e2e8f0', display: 'flex', alignItems: 'center', gap: 8, boxShadow: '0 2px 4px rgba(0,0,0,0.02)' }}>
+                <span style={{ fontSize: 12, fontWeight: 700, color: '#94a3b8' }}>TODAY IS</span>
+                <span style={{ fontSize: 13, fontWeight: 700, color: '#3a2639' }}>{new Date().toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric' })}</span>
+             </div>
+          </div>
+        </div>
 
-        {/* Banner Card */}
+        {/* Banner Card - Premium Overhaul */}
         <div style={{
           position: 'relative',
-          borderRadius: 12,
+          borderRadius: 24,
           overflow: 'hidden',
-          minHeight: '320px',
+          minHeight: '340px',
           display: 'flex',
           flexDirection: 'column',
           alignItems: 'center',
           justifyContent: 'center',
           color: '#fff',
           textAlign: 'center',
-          boxShadow: '0 2px 8px rgba(0,0,0,0.05)',
-          background: '#1a1a1a',
+          boxShadow: '0 20px 40px -10px rgba(58, 38, 57, 0.4)',
+          background: '#020617',
+          marginBottom: 32
         }}>
           <div style={{
             position: 'absolute',
@@ -343,247 +355,372 @@ export default function HomePage() {
             backgroundImage: 'url("/images/banner.jpeg")',
             backgroundSize: 'cover',
             backgroundPosition: 'center',
-            filter: 'blur(3px) brightness(0.4)',
+            filter: 'blur(2px) brightness(0.35)',
             opacity: 0.9,
             zIndex: 0,
           }} />
+          
+          {/* Animated Overlay Gradients */}
+          <div style={{
+            position: 'absolute',
+            width: '100%',
+            height: '100%',
+            background: 'radial-gradient(circle at 10% 20%, rgba(255, 20, 147, 0.15) 0%, transparent 40%), radial-gradient(circle at 90% 80%, rgba(58, 38, 57, 0.4) 0%, transparent 40%)',
+            zIndex: 1
+          }} />
 
           <div style={{ position: 'relative', zIndex: 10, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 12 }}>
-              <img
-                src="/shemet-logo.png"
-                alt="Logo"
-                style={{
-                  width: 90,
-                  height: 90,
-                  objectFit: 'cover',
-                  borderRadius: '50%',
-                  border: '3px solid rgba(255,255,255,0.4)',
-                  boxShadow: '0 4px 15px rgba(0,0,0,0.3)',
-                }}
-              />
+            <div style={{ 
+              display: 'flex', 
+              alignItems: 'center', 
+              justifyContent: 'center', 
+              marginBottom: 16,
+              position: 'relative'
+            }}>
+               {/* Glowing Background for Logo */}
+               <div style={{
+                 position: 'absolute',
+                 width: '140px',
+                 height: '140px',
+                 background: 'rgba(255, 20, 147, 0.2)',
+                 filter: 'blur(40px)',
+                 borderRadius: '50%',
+                 animation: 'pulseGlow 3s ease-in-out infinite'
+               }} />
+
+              {/* IMPROVED 3D ROTATING LOGO */}
+              <div style={{ 
+                perspective: '1000px',
+                width: '120px',
+                height: '120px',
+                position: 'relative'
+              }}>
+                <div style={{
+                  width: '100%',
+                  height: '100%',
+                  position: 'relative',
+                  transformStyle: 'preserve-3d',
+                  animation: 'spin3D 4s linear infinite'
+                }}>
+                  {/* Front Side */}
+                  <div style={{
+                    position: 'absolute',
+                    width: '100%',
+                    height: '100%',
+                    borderRadius: '50%',
+                    background: 'rgba(255, 255, 255, 0.95)',
+                    padding: '4px',
+                    WebkitBackfaceVisibility: 'hidden',
+                    backfaceVisibility: 'hidden',
+                    zIndex: 2,
+                    boxShadow: '0 8px 32px rgba(0,0,0,0.5)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center'
+                  }}>
+                    <img
+                      src="/shemet-logo.png"
+                      alt="Logo"
+                      style={{
+                        width: '94%',
+                        height: '94%',
+                        objectFit: 'cover',
+                        borderRadius: '50%'
+                      }}
+                    />
+                  </div>
+                  {/* Back Side */}
+                  <div style={{
+                    position: 'absolute',
+                    width: '100%',
+                    height: '100%',
+                    borderRadius: '50%',
+                    background: '#3a2639',
+                    transform: 'rotateY(180deg)',
+                    WebkitBackfaceVisibility: 'hidden',
+                    backfaceVisibility: 'hidden',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    zIndex: 1,
+                    border: '4px solid rgba(255, 20, 147, 0.3)'
+                  }}>
+                    <img
+                      src="/shemet-logo.png"
+                      alt="Logo Back"
+                      style={{
+                        width: '94%',
+                        height: '94%',
+                        objectFit: 'cover',
+                        borderRadius: '50%'
+                      }}
+                    />
+                  </div>
+                </div>
+              </div>
+              <style dangerouslySetInnerHTML={{ __html: `
+                @keyframes spin3D { from { transform: rotateY(0deg); } to { transform: rotateY(360deg); } }
+                @keyframes pulseGlow { 0%, 100% { opacity: 0.5; transform: scale(1); } 50% { opacity: 1; transform: scale(1.3); } }
+              ` }} />
             </div>
-            <h2 style={{ fontSize: 42, fontWeight: 800, color: '#fff', margin: 0, textShadow: '0 2px 8px rgba(0,0,0,0.6)', letterSpacing: '1px' }}>Shemet</h2>
-            <p style={{ fontSize: 18, color: '#fff', margin: 0, marginTop: 4, fontWeight: 600, opacity: 0.95, textShadow: '0 1px 4px rgba(0,0,0,0.5)' }}>Chat borderless</p>
+            <h2 style={{ fontSize: 48, fontWeight: 900, color: '#fff', margin: 0, textShadow: '0 4px 12px rgba(0,0,0,0.8)', letterSpacing: '-0.03em' }}>Shemet</h2>
+            <div style={{ 
+               display: 'flex', 
+               alignItems: 'center', 
+               gap: 8, 
+               marginTop: 8,
+               background: 'rgba(255, 255, 255, 0.15)',
+               backdropFilter: 'blur(10px)',
+               padding: '6px 16px',
+               borderRadius: '30px',
+               border: '1px solid rgba(255, 255, 255, 0.2)',
+               boxShadow: '0 4px 15px rgba(0,0,0,0.1)'
+            }}>
+              <p style={{ fontSize: 16, color: '#fff', margin: 0, fontWeight: 700, letterSpacing: '0.05em', textTransform: 'uppercase' }}>Chat borderless</p>
+            </div>
           </div>
         </div>
 
-        {/* Invitation Mini Cards Grid */}
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginTop: 16, marginBottom: 24 }}>
+        {/* Invitation Mini Cards Grid - Premium */}
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: 20, marginBottom: 32 }}>
           {[
             { label: 'Shemet Hosts', link: 'https://chamet.com/invite/hosts', id: 'hosts' },
             { label: 'Shemet Agents', link: 'https://chamet.com/invite/agents', id: 'agents' }
           ].map((item) => (
             <div key={item.id} style={{
-              background: 'linear-gradient(135deg, #573955, #3a2639)',
-              borderRadius: 12,
-              padding: '16px 20px',
+              background: item.id === 'hosts' ? 'linear-gradient(135deg, #3a2639 0%, #7d537b 100%)' : 'linear-gradient(135deg, #FF1493 0%, #C91273 100%)',
+              borderRadius: 20,
+              padding: '24px',
               display: 'flex',
               justifyContent: 'space-between',
               alignItems: 'center',
               color: '#fff',
-              boxShadow: '0 4px 12px rgba(58, 38, 57, 0.25)',
-            }}>
-              <div style={{ flex: 1 }}>
-                <div style={{ fontSize: 12, opacity: 0.85, fontWeight: 500 }}>Invitation Link for</div>
-                <div style={{ fontSize: 16, fontWeight: 700 }}>{item.label}</div>
+              boxShadow: '0 12px 24px -10px rgba(58, 38, 57, 0.3)',
+              position: 'relative',
+              overflow: 'hidden'
+            }} className="hover-lift">
+              <div style={{
+                position: 'absolute',
+                top: '-20%',
+                right: '-10%',
+                width: '100px',
+                height: '100px',
+                background: 'rgba(255, 255, 255, 0.1)',
+                borderRadius: '50%',
+                filter: 'blur(30px)'
+              }} />
+              <div style={{ flex: 1, position: 'relative', zIndex: 1 }}>
+                <div style={{ fontSize: 12, opacity: 0.8, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 4 }}>Invitation Link for</div>
+                <div style={{ fontSize: 20, fontWeight: 800 }}>{item.label}</div>
               </div>
               <button
                 onClick={() => copyToClipboard(item.id)}
-                style={{ padding: '8px 18px', background: '#fff', color: '#3a2639', border: 'none', borderRadius: 20, fontSize: 12, fontWeight: 700, cursor: 'pointer', marginLeft: 12 }}
+                style={{ 
+                   padding: '10px 22px', 
+                   background: '#fff', 
+                   color: item.id === 'hosts' ? '#3a2639' : '#FF1493', 
+                   border: 'none', 
+                   borderRadius: '14px', 
+                   fontSize: 13, 
+                   fontWeight: 800, 
+                   cursor: 'pointer', 
+                   marginLeft: 12,
+                   boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
+                   position: 'relative',
+                   zIndex: 1
+                }}
               >
-                {copied === item.id ? 'Copied' : 'Share Link'}
+                {copied === item.id ? 'Copied ✅' : 'Share Link 🔗'}
               </button>
             </div>
           ))}
         </div>
       </div>
 
-      <div style={{ padding: '0 16px' }}>
-        {/* Commission Progress Section */}
-        <div style={{ background: '#fff', borderRadius: 12, padding: 24, marginBottom: 16, boxShadow: '0 1px 3px rgba(0,0,0,0.05)', position: 'relative', zIndex: 1 }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-            <div style={{ width: '100%' }}>
-              <div style={{ fontSize: 14, color: '#333', fontWeight: 500, marginBottom: 12 }}>
-                My Commission Ratio : <span style={{ color: '#f59e0b', fontWeight: 700 }}>{commissionInfo.ratio}%</span>
-                <span
-                  onMouseEnter={() => setShowTooltip(true)}
-                  onMouseLeave={() => setShowTooltip(false)}
-                  style={{ cursor: 'help', color: '#999', fontSize: 14, marginLeft: 8, background: '#f8fafc', width: 20, height: 20, borderRadius: '50%', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', border: '1px solid #e2e8f0' }}
-                >
-                  ⓘ
-                </span>
+      <div style={{ padding: '0 24px 40px 24px' }} className="dashboard-grid">
+        {/* Commission Progress Section - Elite Design */}
+        <div className="glass-card" style={{ padding: 28, position: 'relative', overflow: 'visible' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+             <h3 style={{ fontSize: 16, fontWeight: 800, color: '#1e293b', margin: 0 }}>Agency Commission Status</h3>
+             <div style={{ background: '#fef3f2', color: '#ff1493', padding: '6px 14px', borderRadius: '30px', fontSize: 13, fontWeight: 800 }}>
+                Tier: <span style={{ fontSize: 16 }}>{commissionInfo.ratio}%</span>
+             </div>
+          </div>
+          
+          <div style={{ position: 'relative', marginBottom: 24 }}>
+             <div style={{ height: 14, background: '#f1f5f9', borderRadius: 10, padding: '3px' }}>
+                <div style={{
+                   width: `${Math.min(100, (commissionInfo.current / commissionInfo.target) * 100)}%`,
+                   height: '100%',
+                   background: 'linear-gradient(90deg, #3a2639 0%, #ff1493 100%)',
+                   borderRadius: 7,
+                   transition: 'width 1.5s cubic-bezier(0.16, 1, 0.3, 1)',
+                   position: 'relative'
+                }}>
+                   <div style={{
+                      position: 'absolute',
+                      right: 0,
+                      top: 0,
+                      width: '4px',
+                      height: '100%',
+                      background: '#fff',
+                      opacity: 0.5
+                   }} />
+                </div>
+             </div>
+             <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 12 }}>
+                <div>
+                   <span style={{ fontSize: 22, fontWeight: 900, color: '#3a2639' }}>${Math.floor(commissionInfo.current)}</span>
+                   <span style={{ fontSize: 13, color: '#94a3b8', fontWeight: 600, marginLeft: 6 }}>Earned</span>
+                </div>
+                <div style={{ textAlign: 'right' }}>
+                   <span style={{ fontSize: 22, fontWeight: 900, color: '#ff1493' }}>${commissionInfo.target}</span>
+                   <span style={{ fontSize: 13, color: '#94a3b8', fontWeight: 600, marginLeft: 6 }}>Next Goal</span>
+                </div>
+             </div>
+          </div>
 
-                {/* Glassmorphism Tooltip */}
-                {showTooltip && (
-                  <div style={{
-                    position: 'absolute',
-                    top: 50,
-                    left: 24,
-                    zIndex: 100,
-                    background: 'rgba(255, 255, 255, 0.8)',
-                    backdropFilter: 'blur(12px)',
-                    border: '1px solid rgba(255, 255, 255, 0.3)',
-                    borderRadius: 16,
-                    padding: 20,
-                    boxShadow: '0 10px 25px rgba(0,0,0,0.1)',
-                    width: 280,
-                    animation: 'fadeIn 0.2s ease-out'
-                  }}>
-                    <style dangerouslySetInnerHTML={{ __html: `@keyframes fadeIn { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: translateY(0); } }` }} />
-                    <div style={{ color: '#3a2639', fontWeight: 700, fontSize: 14, marginBottom: 12 }}>Commission Tier Rules</div>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                      {[
-                        { limit: '$0+', ratio: '0%' },
-                        { limit: '$500+', ratio: '5%' },
-                        { limit: '$2000+', ratio: '10%' },
-                        { limit: '$5000+', ratio: '15%' },
-                        { limit: '$10000+', ratio: '20%' },
-                      ].map((tier, i) => (
-                        <div key={i} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, color: i * 500 <= commissionInfo.current ? '#3a2639' : '#94a3b8', fontWeight: i * 500 <= commissionInfo.current ? 600 : 400 }}>
-                          <span>{tier.limit}</span>
-                          <span>{tier.ratio}</span>
-                        </div>
-                      ))}
-                    </div>
-                    <div style={{ marginTop: 12, paddingTop: 12, borderTop: '1px solid rgba(0,0,0,0.05)', fontSize: 11, color: '#666', lineHeight: 1.4 }}>
-                      Current Growth: <strong style={{ color: '#f59e0b' }}>${Math.floor(commissionInfo.current)}</strong>
-                    </div>
-                  </div>
-                )}
-              </div>
-              <div style={{ width: '100%', marginBottom: 12 }}>
-                <div style={{ height: 10, background: '#f3f4f6', borderRadius: 5, overflow: 'hidden', position: 'relative' }}>
-                  <div style={{
-                    width: `${Math.min(100, (commissionInfo.current / commissionInfo.target) * 100)}%`,
-                    height: '100%',
-                    background: 'linear-gradient(90deg, #573955, #3a2639)',
-                    borderRadius: 5,
-                    transition: 'width 1s ease-out'
-                  }} />
-                </div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 8, fontSize: 12, color: '#666' }}>
-                  <span style={{ fontWeight: 600, color: '#3a2639' }}>${Math.floor(commissionInfo.current)}<span style={{ color: '#999', fontWeight: 400 }}>/{commissionInfo.ratio}%</span></span>
-                  <span style={{ fontWeight: 600, color: '#3a2639' }}>${commissionInfo.target}<span style={{ color: '#999', fontWeight: 400 }}>/Next Level</span></span>
-                </div>
-                {commissionInfo.target > commissionInfo.current && (
-                  <div style={{ fontSize: 12, color: '#f59e0b', marginTop: 8, fontWeight: 500 }}>
-                    ${Math.floor(commissionInfo.target - commissionInfo.current)} more to reach next tier
-                  </div>
-                )}
-              </div>
-            </div>
+          <div style={{ 
+             background: 'rgba(255, 20, 147, 0.04)', 
+             borderRadius: '16px', 
+             padding: '16px', 
+             display: 'flex', 
+             alignItems: 'center', 
+             gap: 12,
+             border: '1px dashed rgba(255, 20, 147, 0.2)' 
+          }}>
+             <span style={{ fontSize: 24 }}>📈</span>
+             <p style={{ fontSize: 13, color: '#3a2639', fontWeight: 600, margin: 0 }}>
+                You are just <span style={{ color: '#ff1493' }}>${Math.floor(commissionInfo.target - commissionInfo.current)}</span> away from the <strong>Next Commission Tier!</strong>
+             </p>
           </div>
         </div>
 
-        {/* Rewards Sections */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 16, marginBottom: 16 }}>
-          <div style={{ background: '#fff', borderRadius: 12, padding: '24px 32px', boxShadow: '0 2px 8px rgba(0,0,0,0.04)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', position: 'relative', overflow: 'visible', marginTop: 20 }}>
-            <div>
-              <div style={{ background: '#f8fafc', borderRadius: 6, padding: '4px 12px', width: 'fit-content', border: '1px solid #e2e8f0', marginBottom: 16 }}>
+        {/* Rewards Sections - Premium Cards */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
+          {/* Monthly Rewards Card */}
+          <div className="glass-card" style={{ padding: 28, minHeight: '160px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', overflow: 'hidden', position: 'relative' }}>
+            <div style={{ position: 'relative', zIndex: 1 }}>
+              <div style={{ background: 'rgba(255, 255, 255, 0.8)', border: '1px solid #e2e8f0', borderRadius: '10px', padding: '6px 14px', width: 'fit-content', marginBottom: 14 }}>
                 <input
                   type="month"
                   value={selectedMonth}
                   onChange={(e) => setSelectedMonth(e.target.value)}
-                  style={{ border: 'none', background: 'transparent', fontSize: 12, color: '#444', fontWeight: 600, outline: 'none', cursor: 'pointer' }}
+                  style={{ border: 'none', background: 'transparent', fontSize: 13, color: '#334155', fontWeight: 700, outline: 'none', cursor: 'pointer' }}
                 />
               </div>
-              <div style={{ fontSize: 16, color: '#444', fontWeight: 600 }}>Monthly Rewards: <span style={{ color: '#f59e0b', fontSize: 24, fontWeight: 700, marginLeft: 8 }}>${monthlyEarnings.toLocaleString()}</span></div>
+              <p style={{ fontSize: 14, color: '#64748b', fontWeight: 700, margin: '0 0 4px 0', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Total Monthly Rewards</p>
+              <h2 style={{ fontSize: 36, fontWeight: 900, color: '#3a2639', margin: 0 }}>${monthlyEarnings.toLocaleString()}</h2>
             </div>
-            <div style={{ position: 'absolute', right: 80, bottom: -10, zIndex: 10, filter: 'drop-shadow(-10px 15px 20px rgba(0, 0, 0, 0.25))', animation: 'floatPremium 4s ease-in-out infinite' }}>
-              <style dangerouslySetInnerHTML={{ __html: `@keyframes floatPremium { 0% { transform: translate3d(0px, 0px, 0px) rotate(-3deg); } 50% { transform: translate3d(-5px, -15px, 0px) rotate(4deg); } 100% { transform: translate3d(0px, 0px, 0px) rotate(-3deg); } }` }} />
-              <img src="/images/gold.png" alt="Gold" style={{ width: 180, height: 'auto' }} />
+            <div style={{ position: 'absolute', right: -20, bottom: -20, zIndex: 0, opacity: 0.9, filter: 'drop-shadow(-10px 20px 30px rgba(0, 0, 0, 0.2))', transform: 'rotate(-5deg)' }}>
+              <img src="/images/gold.png" alt="Gold" style={{ width: 200, height: 'auto' }} />
             </div>
           </div>
 
-          <div style={{ background: '#fff', borderRadius: 12, padding: '24px 32px', boxShadow: '0 2px 8px rgba(0,0,0,0.04)' }}>
-            <div style={{ background: '#f8fafc', borderRadius: 6, padding: '4px 12px', width: 'fit-content', border: '1px solid #e2e8f0', marginBottom: 16 }}>
-              <input
-                type="date"
-                value={searchDate}
-                onChange={(e) => setSearchDate(e.target.value)}
-                style={{ border: 'none', background: 'transparent', fontSize: 12, color: '#475569', fontWeight: 600, outline: 'none', cursor: 'pointer' }}
-              />
+          {/* Daily Rewards Grid - High Performance Look */}
+          <div className="glass-card" style={{ padding: 28 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 28 }}>
+               <div>
+                  <div style={{ background: 'rgba(255, 255, 255, 0.8)', border: '1px solid #e2e8f0', borderRadius: '10px', padding: '6px 14px', width: 'fit-content', marginBottom: 8 }}>
+                    <input
+                      type="date"
+                      value={searchDate}
+                      onChange={(e) => setSearchDate(e.target.value)}
+                      style={{ border: 'none', background: 'transparent', fontSize: 13, color: '#334155', fontWeight: 700, outline: 'none', cursor: 'pointer' }}
+                    />
+                  </div>
+                  <p style={{ fontSize: 13, color: '#64748b', fontWeight: 700, margin: 0 }}>DAILY PERFORMANCE</p>
+               </div>
+               <div style={{ textAlign: 'right' }}>
+                  <p style={{ fontSize: 12, color: '#94a3b8', fontWeight: 700, margin: 0 }}>EARNINGS TODAY</p>
+                  <h3 style={{ fontSize: 24, fontWeight: 900, color: '#ff1493', margin: 0 }}>${(stats.totalEarnings).toLocaleString()}</h3>
+               </div>
             </div>
-            <div style={{ fontSize: 16, color: '#444', fontWeight: 600, marginBottom: 32 }}>Daily Rewards: <span style={{ color: '#f59e0b', fontSize: 24, fontWeight: 700, marginLeft: 8 }}>${(stats.totalEarnings).toLocaleString()}</span></div>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '40px 16px' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '32px 16px' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                 <PurplePeopleIcon badge="star" />
                 <div>
-                  <div style={{ fontSize: 12, color: '#94a3b8', fontWeight: 500, marginBottom: 4 }}>Earning Hosts</div>
-                  <div style={{ fontSize: 20, fontWeight: 700, color: '#f59e0b' }}>{stats.activeHosts}</div>
+                  <div style={{ fontSize: 11, color: '#94a3b8', fontWeight: 700, textTransform: 'uppercase', marginBottom: 4 }}>Earning Hosts</div>
+                  <div style={{ fontSize: 22, fontWeight: 900, color: '#1e293b' }}>{stats.activeHosts}</div>
                 </div>
               </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                 <PurplePeopleIcon badge="coin" />
                 <div>
-                  <div style={{ fontSize: 12, color: '#94a3b8', fontWeight: 500, marginBottom: 4 }}>Invitees' Earning</div>
-                  <div style={{ fontSize: 20, fontWeight: 700, color: '#f59e0b' }}>{(stats.totalEarnings).toLocaleString('en-US', { style: 'currency', currency: 'USD' })}</div>
+                  <div style={{ fontSize: 11, color: '#94a3b8', fontWeight: 700, textTransform: 'uppercase', marginBottom: 4 }}>Hosts Earning</div>
+                  <div style={{ fontSize: 22, fontWeight: 900, color: '#1e293b' }}>{(stats.totalEarnings).toLocaleString('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 })}</div>
                 </div>
               </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                 <GoldCoinIcon />
                 <div>
-                  <div style={{ fontSize: 12, color: '#94a3b8', fontWeight: 500, marginBottom: 4 }}>My Regular Rewards</div>
-                  <div style={{ fontSize: 20, fontWeight: 700, color: '#f59e0b' }}>$0</div>
+                  <div style={{ fontSize: 11, color: '#94a3b8', fontWeight: 700, textTransform: 'uppercase', marginBottom: 4 }}>Regular Rewards</div>
+                  <div style={{ fontSize: 22, fontWeight: 900, color: '#10b981' }}>$0</div>
                 </div>
               </div>
-              <div style={{ gridColumn: '1 / -1', height: 1, background: '#f1f5f9', margin: '-10px 0' }} />
-              <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+              <div style={{ gridColumn: '1 / -1', height: 1, background: '#f1f5f9', margin: '0' }} />
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                 <OrangePeopleIcon />
                 <div>
-                  <div style={{ fontSize: 12, color: '#94a3b8', fontWeight: 500, marginBottom: 4 }}>Earning Agents</div>
-                  <div style={{ fontSize: 20, fontWeight: 700, color: '#f59e0b' }}>{stats.earningAgents}</div>
+                  <div style={{ fontSize: 11, color: '#94a3b8', fontWeight: 700, textTransform: 'uppercase', marginBottom: 4 }}>Earning Agents</div>
+                  <div style={{ fontSize: 22, fontWeight: 900, color: '#1e293b' }}>{stats.earningAgents}</div>
                 </div>
               </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                 <OrangePeopleIcon badge="coin" />
                 <div>
-                  <div style={{ fontSize: 12, color: '#94a3b8', fontWeight: 500, marginBottom: 4 }}>Invitees' Achievement</div>
-                  <div style={{ fontSize: 20, fontWeight: 700, color: '#f59e0b' }}>$0</div>
+                  <div style={{ fontSize: 11, color: '#94a3b8', fontWeight: 700, textTransform: 'uppercase', marginBottom: 4 }}>Invitees' Performance</div>
+                  <div style={{ fontSize: 22, fontWeight: 900, color: '#1e293b' }}>$0</div>
                 </div>
               </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                 <GoldCoinIcon />
                 <div>
-                  <div style={{ fontSize: 12, color: '#94a3b8', fontWeight: 500, marginBottom: 4 }}>My Extra Rewards</div>
-                  <div style={{ fontSize: 20, fontWeight: 700, color: '#f59e0b' }}>$0</div>
+                  <div style={{ fontSize: 11, color: '#94a3b8', fontWeight: 700, textTransform: 'uppercase', marginBottom: 4 }}>Extra Rewards</div>
+                  <div style={{ fontSize: 22, fontWeight: 900, color: '#10b981' }}>$0</div>
                 </div>
               </div>
             </div>
           </div>
         </div>
 
-        {/* Charts Section */}
-        <div style={{ background: '#fff', borderRadius: 12, padding: 24, boxShadow: '0 1px 3px rgba(0,0,0,0.05)', marginBottom: 16 }}>
-          <h3 style={{ fontSize: 16, fontWeight: 600, marginBottom: 20, color: '#111' }}>Earning Distribution</h3>
-          <div style={{ height: 300, width: '100%' }}>
+        {/* Charts Section - Clean & Modern */}
+        <div className="glass-card" style={{ padding: 28, marginBottom: 24 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
+             <h3 style={{ fontSize: 17, fontWeight: 800, color: '#1e293b', margin: 0 }}>Earning Distribution</h3>
+             <div style={{ fontSize: 12, color: '#94a3b8', fontWeight: 700 }}>REAL-TIME ANALYTICS</div>
+          </div>
+          <div style={{ height: 320, width: '100%', padding: '0 0 10px 0' }}>
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={distributionData}>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                <XAxis dataKey="name" fontSize={12} />
-                <YAxis fontSize={12} />
-                <Tooltip />
-                <Bar dataKey="value" radius={[4, 4, 0, 0]} barSize={60}>
-                  {distributionData.map((entry, index) => <Cell key={index} fill={COLORS[index % COLORS.length]} />)}
+              <BarChart data={distributionData} margin={{ top: 0, right: 0, left: -20, bottom: 0 }}>
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                <XAxis dataKey="name" fontSize={11} fontWeight={700} axisLine={false} tickLine={false} />
+                <YAxis fontSize={11} fontWeight={600} axisLine={false} tickLine={false} />
+                <Tooltip cursor={{ fill: 'rgba(58, 38, 57, 0.04)' }} contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 25px rgba(0,0,0,0.1)' }} />
+                <Bar dataKey="value" radius={[10, 10, 0, 0]} barSize={50}>
+                  {distributionData.map((entry, index) => <Cell key={index} fill={index === 0 ? '#3a2639' : '#ff1493'} />)}
                 </Bar>
               </BarChart>
             </ResponsiveContainer>
           </div>
         </div>
 
-        <div style={{ background: '#fff', borderRadius: 12, padding: 24, boxShadow: '0 1px 3px rgba(0,0,0,0.05)', marginBottom: 32 }}>
-          <h3 style={{ fontSize: 16, fontWeight: 600, marginBottom: 20, color: '#111' }}>Earning Line Chart</h3>
-          <div style={{ height: 350, width: '100%' }}>
+        <div className="glass-card" style={{ padding: 28 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
+             <h3 style={{ fontSize: 17, fontWeight: 800, color: '#1e293b', margin: 0 }}>Historical Growth Trend</h3>
+             <div style={{ fontSize: 12, color: '#94a3b8', fontWeight: 700 }}>LAST 14 DAYS</div>
+          </div>
+          <div style={{ height: 350, width: '100%', padding: '0 0 10px 0' }}>
             <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={lineChartData}>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                <XAxis dataKey="date" fontSize={11} tickFormatter={(val) => val.split('-').slice(2).join('/')} />
-                <YAxis fontSize={11} />
-                <Tooltip />
-                <Legend iconType="circle" />
-                <Line type="monotone" dataKey="hosts" stroke="#3a2639" strokeWidth={3} dot={{ r: 4 }} name="Hosts" />
-                <Line type="monotone" dataKey="agents" stroke="#7d537b" strokeWidth={3} dot={{ r: 4 }} name="Agents" />
+              <LineChart data={lineChartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                <XAxis dataKey="date" fontSize={10} fontWeight={700} axisLine={false} tickLine={false} tickFormatter={(val) => val.split('-').slice(2).join('/')} />
+                <YAxis fontSize={10} fontWeight={600} axisLine={false} tickLine={false} />
+                <Tooltip contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 25px rgba(0,0,0,0.1)' }} />
+                <Legend iconType="circle" wrapperStyle={{ paddingTop: 20, fontWeight: 700, fontSize: 12 }} />
+                <Line type="monotone" dataKey="hosts" stroke="#3a2639" strokeWidth={4} dot={{ r: 5, fill: '#3a2639', strokeWidth: 3, stroke: '#fff' }} activeDot={{ r: 8 }} name="Earning Hosts" />
+                <Line type="monotone" dataKey="agents" stroke="#ff1493" strokeWidth={4} dot={{ r: 5, fill: '#ff1493', strokeWidth: 3, stroke: '#fff' }} activeDot={{ r: 8 }} name="Active Agents" />
               </LineChart>
             </ResponsiveContainer>
           </div>

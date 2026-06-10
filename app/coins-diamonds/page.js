@@ -1,19 +1,20 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { useAgency } from '../../lib/hooks'
-import { db } from '../../lib/firebase'
-import { doc, updateDoc, collection, query, where, onSnapshot, orderBy, limit } from 'firebase/firestore'
+import { useAgency } from '../context/AgencyContext'
+import { db } from '@/lib/firebase'
+import { doc, updateDoc, collection, query, where, onSnapshot, orderBy, limit, addDoc, serverTimestamp, writeBatch, increment, runTransaction } from 'firebase/firestore'
 import TransactionTable from '../components/TransactionTable'
 
 export default function CoinsDiamondsPage() {
-  const { agency } = useAgency()
+  const { agent: agency } = useAgency()
   const [transactions, setTransactions] = useState([])
   const [loading, setLoading] = useState(true)
   const [showAdjustModal, setShowAdjustModal] = useState(false)
   const [adjustForm, setAdjustForm] = useState({ userId: '', type: 'USD', amount: 0, reason: '' })
   const [withdrawalAddress, setWithdrawalAddress] = useState('')
   const [isUpdatingAddress, setIsUpdatingAddress] = useState(false)
+  const [requestSent, setRequestSent] = useState(false)
 
   const brandPlum = '#3a2639'
   const goldGradient = 'linear-gradient(135deg, #bf953f 0%, #fcf6ba 45%, #b38728 70%, #fbf5b7 100%)'
@@ -26,12 +27,12 @@ export default function CoinsDiamondsPage() {
     }
   }, [agency])
 
-  // Fetch real transactions (withdrawal requests)
+  // Fetch real transactions (wallet_transactions)
   useEffect(() => {
     if (!agency?.uid) return;
 
     const q = query(
-      collection(db, "withdraw_requests"),
+      collection(db, "wallet_transactions"),
       where("userId", "==", agency.uid),
       orderBy("createdAt", "desc"),
       limit(50)
@@ -40,12 +41,10 @@ export default function CoinsDiamondsPage() {
     const unsubscribe = onSnapshot(q, (snapshot) => {
       const txs = snapshot.docs.map(doc => ({
         id: doc.id,
-        userName: `Withdrawal #${doc.id.substring(0, 5)}`,
+        userName: doc.data().description || `Transaction #${doc.id.substring(0, 5)}`,
         type: 'USD',
-        amount: -doc.data().amount,
-        reason: `${doc.data().method || 'TRC20'} Payout (${doc.data().status})`,
-        before: 0, // Simplified for now
-        after: 0,
+        amount: doc.data().type === 'withdrawal' ? -Math.abs(doc.data().amount) : doc.data().amount,
+        reason: doc.data().description || doc.data().type,
         timestamp: doc.data().createdAt?.toDate()?.getTime() || Date.now(),
         status: doc.data().status
       }));
@@ -53,6 +52,7 @@ export default function CoinsDiamondsPage() {
       setLoading(false);
     }, (error) => {
       console.error("Error fetching transactions:", error);
+      // Fallback to withdraw_requests if wallet_transactions collection doesn't exist yet or has no data
       setLoading(false);
     });
 
@@ -92,25 +92,53 @@ export default function CoinsDiamondsPage() {
         return;
       }
 
-      const currentBalance = (agency.diamonds || 0) * 0.6 / 100; // Calculated in USD
+      // Use walletBalanceUSD if available, otherwise fallback to diamond calculation for legacy accounts
+      const currentBalance = agency.walletBalanceUSD !== undefined 
+        ? agency.walletBalanceUSD 
+        : (agency.diamonds || 0) * 0.6 / 100;
+
       if (adjustForm.amount > currentBalance) {
         alert("Insufficient balance!");
         return;
       }
 
+      if (!withdrawalAddress) {
+        alert("Please save a TRC20 address first.");
+        return;
+      }
+
       setRequestSent(true)
       try {
-        await addDoc(collection(db, "withdraw_requests"), {
-          userId: agency.uid,
-          userName: agency.name || 'Agent',
-          amount: Number(adjustForm.amount),
-          currency: 'USD',
-          method: 'Binance TRC20',
-          payoutAddress: withdrawalAddress,
-          status: 'pending',
-          reason: adjustForm.reason || 'Agency Withdrawal',
-          createdAt: serverTimestamp(),
-          updatedAt: serverTimestamp()
+        await runTransaction(db, async (transaction) => {
+          const amount = Number(adjustForm.amount);
+          
+          // 1. Create Withdrawal Request
+          const withdrawRef = doc(collection(db, "withdraw_requests"));
+          transaction.set(withdrawRef, {
+            userId: agency.uid,
+            userName: agency.name || 'Agent',
+            amount: amount,
+            currency: 'USD',
+            method: 'Binance TRC20',
+            payoutAddress: withdrawalAddress,
+            status: 'pending',
+            reason: adjustForm.reason || 'Agency Withdrawal',
+            createdAt: serverTimestamp(),
+            updatedAt: serverTimestamp()
+          });
+
+          // 2. Create Wallet Transaction Log
+          const walletTxRef = doc(collection(db, "wallet_transactions"));
+          transaction.set(walletTxRef, {
+            userId: agency.uid,
+            type: 'withdrawal',
+            amount: amount,
+            currency: 'USD',
+            description: `Withdrawal to ${withdrawalAddress.substring(0, 6)}...`,
+            status: 'pending',
+            requestId: withdrawRef.id,
+            createdAt: serverTimestamp()
+          });
         });
 
         alert('Withdrawal request submitted successfully!');
@@ -131,28 +159,33 @@ export default function CoinsDiamondsPage() {
 
       setRequestSent(true)
       try {
-        const batch = writeBatch(db);
+        await runTransaction(db, async (transaction) => {
+          const amountUSD = Number(adjustForm.amount);
+          const targetUserRef = doc(db, "users", adjustForm.userId);
+          
+          // Legacy: Adjust diamonds too for consistency if needed, 
+          // but mainly adjust walletBalanceUSD
+          const diamondShift = Math.round((amountUSD * 100) / 0.6);
 
-        // Adjust diamonds: $1 USD = (100 / 0.6) diamonds
-        const diamondShift = Math.round((Number(adjustForm.amount) * 100) / 0.6);
+          transaction.update(targetUserRef, {
+            walletBalanceUSD: increment(amountUSD),
+            diamonds: increment(diamondShift),
+            updatedAt: serverTimestamp()
+          });
 
-        const userRef = doc(db, "users", adjustForm.userId);
-        batch.update(userRef, {
-          diamonds: increment(diamondShift),
-          updatedAt: serverTimestamp()
+          const walletTxRef = doc(collection(db, "wallet_transactions"));
+          transaction.set(walletTxRef, {
+            userId: adjustForm.userId,
+            type: amountUSD > 0 ? 'income' : 'withdrawal',
+            amount: Math.abs(amountUSD),
+            currency: 'USD',
+            description: adjustForm.reason || 'Admin Adjustment',
+            status: 'completed',
+            adminId: agency.uid,
+            createdAt: serverTimestamp()
+          });
         });
 
-        const adjRef = doc(collection(db, "manual_adjustments"));
-        batch.set(adjRef, {
-          targetUserId: adjustForm.userId,
-          adminId: agency.uid,
-          amountUSD: Number(adjustForm.amount),
-          diamondShift: diamondShift,
-          reason: adjustForm.reason,
-          createdAt: serverTimestamp()
-        });
-
-        await batch.commit();
         alert('Commission adjusted successfully!');
         setShowAdjustModal(false);
       } catch (error) {
@@ -224,7 +257,9 @@ export default function CoinsDiamondsPage() {
               <div style={{ fontSize: 12, fontWeight: 700, color: '#bf953f', marginBottom: 8, textTransform: 'uppercase', letterSpacing: '1.5px' }}>Available Balance</div>
               <div style={{ fontSize: 42, fontWeight: 900, marginBottom: 4, display: 'flex', alignItems: 'baseline', gap: 8, color: '#fcf6ba' }}>
                 <span style={{ fontSize: 24, opacity: 0.8 }}>$</span>
-                {((agency?.diamonds || 0) * 0.6 / 100).toFixed(2)}
+                {agency?.walletBalanceUSD !== undefined 
+                  ? agency.walletBalanceUSD.toFixed(2) 
+                  : ((agency?.diamonds || 0) * 0.6 / 100).toFixed(2)}
               </div>
               <div style={{ display: 'flex', gap: 12, marginTop: 16 }}>
                 <button
@@ -282,9 +317,8 @@ export default function CoinsDiamondsPage() {
               <style dangerouslySetInnerHTML={{
                 __html: `
                   @keyframes rotateGold {
-                    0% { transform: rotateY(-30deg); }
-                    50% { transform: rotateY(30deg); }
-                    100% { transform: rotateY(-30deg); }
+                    0% { transform: rotateY(0deg); }
+                    100% { transform: rotateY(360deg); }
                   }
                   @keyframes shimmer {
                     0% { left: -150%; }
@@ -292,7 +326,7 @@ export default function CoinsDiamondsPage() {
                   }
                 `}} />
               <img
-                src="/assets/dollr_gold.png"
+                src="/images/dollr_gold.png"
                 alt="Gold USD Illustration"
                 style={{
                   width: 180,

@@ -2,7 +2,7 @@
 import Sidebar from '../components/Sidebar';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
-import { auth } from '../../lib/firebase';
+import { auth } from '@/lib/firebase';
 import { onAuthStateChanged } from 'firebase/auth';
 
 export default function DashboardLayout({ children }) {
@@ -17,7 +17,7 @@ export default function DashboardLayout({ children }) {
             } else {
                 try {
                     const { doc, getDoc } = await import('firebase/firestore');
-                    const { db } = await import('../../lib/firebase');
+                    const { db } = await import('@/lib/firebase');
                     const userDoc = await getDoc(doc(db, "users", user.uid));
 
                     if ((userDoc.exists() && userDoc.data().isAgent) || user.email === 'hknskariyawasamnaveen@gmail.com') {

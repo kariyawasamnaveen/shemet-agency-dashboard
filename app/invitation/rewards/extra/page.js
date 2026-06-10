@@ -13,23 +13,38 @@ export default function ExtraRewardsPage() {
     const brandPlum = '#3a2639'
 
     useEffect(() => {
-        if (!agency?.agencyId) return;
+        if (!agency) return;
+
+        if (!agency.agencyId) {
+            console.warn("User has no agencyId, cannot fetch sub-agent rewards.");
+            setLoading(false);
+            return;
+        }
+
+        console.log("Fetching sub-agents for extra rewards. Master Agency ID:", agency.agencyId);
 
         // Fetch sub-agents for this agency
+        // We look in 'users' collection for items where isAgent is true AND parentAgencyId matches
         const q = query(
-            collection(db, "agencies"),
+            collection(db, "users"),
+            where("isAgent", "==", true),
             where("parentAgencyId", "==", agency.agencyId)
         );
 
         const unsubscribe = onSnapshot(q, (snapshot) => {
+            console.log(`Found ${snapshot.size} sub-agents.`);
             const agentList = snapshot.docs.map(doc => {
                 const data = doc.data();
+                // We calculate commission based on their network revenue
+                // For now using data.totalRevenue if it exists, or 0
+                const revenue = data.networkRevenue || 0; 
                 return {
                     id: doc.id,
+                    shemetId: data.shemetId || doc.id,
                     name: data.name || 'Unknown',
-                    totalHosts: data.hostCount || 0,
-                    revenue: data.totalRevenue || 0,
-                    commission: (data.totalRevenue || 0) * 0.1, // Example 10% sub-agent commission
+                    totalHosts: data.hostsInvitedCount || 0,
+                    revenue: revenue,
+                    commission: revenue * 0.1, // 10% sub-agent network commission
                 };
             });
             setSubAgents(agentList);
@@ -39,7 +54,15 @@ export default function ExtraRewardsPage() {
             setLoading(false);
         });
 
-        return () => unsubscribe();
+        // Safety timeout
+        const timer = setTimeout(() => {
+            if (loading) setLoading(false);
+        }, 8000);
+
+        return () => {
+            unsubscribe();
+            clearTimeout(timer);
+        };
     }, [agency]);
 
     return (
