@@ -3,7 +3,7 @@
 ## Overview
 The Shemet Agency Dashboard is the web-based administrative panel for agency owners and super-admins managing the Dating Live App ecosystem. Built with Next.js and Firebase, it provides real-time monitoring of agency performance, live host management, revenue tracking, and application processing.
 
-The dashboard connects directly to the production Firestore database of the main Flutter app, allowing real-time bidirectional updates.
+The dashboard connects to a Firebase/Firestore backend shared with a companion mobile app, enabling real-time bidirectional updates.
 
 ## Screenshots
 
@@ -92,6 +92,8 @@ cp .env.example .env.local
 Fill in the required Firebase credentials. The dashboard requires **both** Client SDK and Admin SDK credentials.
 * **Client Keys**: Found in Firebase Console -> Project Settings -> General -> Web App.
 * **Admin Private Key**: Found in Firebase Console -> Project Settings -> Service Accounts -> Generate New Private Key. *(Store the private key string exactly as provided, preserving the `\n` characters).*
+
+⚠️ Never commit `.env.local` or any file containing real credentials — these are gitignored for a reason.
 
 ### 3. Installation
 ```bash
