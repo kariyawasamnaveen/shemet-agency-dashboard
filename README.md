@@ -5,6 +5,53 @@ The Shemet Agency Dashboard is the web-based administrative panel for agency own
 
 The dashboard connects directly to the production Firestore database of the main Flutter app, allowing real-time bidirectional updates.
 
+## Screenshots
+
+| Login | Dashboard | Gift Sending |
+|:---:|:---:|:---:|
+| <img src="screenshots/login.png" width="250"> | <img src="screenshots/dashboard.png" width="250"> | <img src="screenshots/gift.png" width="250"> |
+| **Diamond Purchase** | **Notifications** | **Profile** |
+| <img src="screenshots/buy_diamond.png" width="250"> | <img src="screenshots/notification.png" width="250"> | <img src="screenshots/profile.png" width="250"> |
+
+<details>
+<summary>📸 View all screenshots</summary>
+<br>
+
+<table>
+  <tr>
+    <td><img src="screenshots/all/screenshot_01.png" width="250"></td>
+    <td><img src="screenshots/all/screenshot_02.png" width="250"></td>
+    <td><img src="screenshots/all/screenshot_03.png" width="250"></td>
+  </tr>
+  <tr>
+    <td><img src="screenshots/all/screenshot_04.png" width="250"></td>
+    <td><img src="screenshots/all/screenshot_05.png" width="250"></td>
+    <td><img src="screenshots/all/screenshot_06.png" width="250"></td>
+  </tr>
+  <tr>
+    <td><img src="screenshots/all/screenshot_07.png" width="250"></td>
+    <td><img src="screenshots/all/screenshot_08.png" width="250"></td>
+    <td><img src="screenshots/all/screenshot_09.png" width="250"></td>
+  </tr>
+  <tr>
+    <td><img src="screenshots/all/screenshot_10.png" width="250"></td>
+    <td><img src="screenshots/all/screenshot_11.png" width="250"></td>
+    <td><img src="screenshots/all/screenshot_12.png" width="250"></td>
+  </tr>
+  <tr>
+    <td><img src="screenshots/all/screenshot_13.png" width="250"></td>
+    <td><img src="screenshots/all/screenshot_14.png" width="250"></td>
+    <td><img src="screenshots/all/screenshot_15.png" width="250"></td>
+  </tr>
+  <tr>
+    <td><img src="screenshots/all/screenshot_16.png" width="250"></td>
+    <td><img src="screenshots/all/screenshot_17.png" width="250"></td>
+    <td><img src="screenshots/all/screenshot_18.png" width="250"></td>
+  </tr>
+</table>
+
+</details>
+
 ## Tech Stack
 * **Framework**: Next.js 14 (App Router)
 * **Styling**: Tailwind CSS
@@ -64,6 +111,5 @@ npm start
 ```
 
 ## Known Limitations
-* **Missing Components**: The `LeaderboardTable` and `PartyRoomTable` components are currently referenced in their respective pages but are undefined, causing runtime/linting errors on those specific routes.
 * **Client-side Pagination**: Many tables load all documents into memory rather than using Firestore pagination (`limit`, `startAfter`), which may cause performance issues as the user base scales.
 * **Firestore Rules**: Security relies heavily on Firestore Security Rules (managed via the Firebase Console or the main Flutter app repository), as direct client-side reads bypass Next.js middleware.
